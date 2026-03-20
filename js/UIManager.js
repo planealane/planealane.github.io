@@ -185,4 +185,31 @@ export class UIManager {
             }
         }
     }
+    
+    drawStartScreen(ctx, bgImage, titleImage) {
+        // 1. Draw background image or fallback
+        if (bgImage) {
+            ctx.drawImage(bgImage, 0, 0, this.width, this.height);
+        } else {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        // 2. Draw title banner
+        if (titleImage) {
+            // Scale title to fit max 80% of screen width, maintaining aspect ratio
+            const maxWidth = this.width * 0.8;
+            const scale = Math.min(maxWidth / titleImage.width, 1);
+            const scaledWidth = titleImage.width * scale;
+            const scaledHeight = titleImage.height * scale;
+            
+            const titleX = this.width / 2 - scaledWidth / 2;
+            const titleY = this.height * 0.15; // Positioned 15% from the top
+            
+            ctx.drawImage(titleImage, titleX, titleY, scaledWidth, scaledHeight);
+        }
+
+        // 3. Draw start button
+        this.startButton.draw(ctx);
+    }
 }

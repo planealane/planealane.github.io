@@ -1,20 +1,27 @@
 // js/main.js
 import { AssetManager } from './AssetManager.js';
+import { AudioManager } from './AudioManager.js';
 import { GameManager } from './GameManager.js';
 
 const init = async () => {
     const assets = new AssetManager();
+    const audio = new AudioManager(); // Instantiate audio manager
     
-    // Load images and wait for CSS fonts concurrently
+    // Load images, audio, and wait for CSS fonts concurrently
     await Promise.all([
-        // Load with black background removal enabled for both ships and props
         assets.loadImage('ships', 'assets/ships.png', true),
         assets.loadImage('props', 'assets/props.png', true),
-        // Wait for custom fonts to prevent Canvas text rendering issues
+        assets.loadImage('plain-sky', 'assets/plain-sky.jpg'),
+        assets.loadImage('title', 'assets/title.png'),
+        
+        // Add your audio file here (adjust extension if needed)
+        audio.loadSound('title-theme', 'assets/audio/title_theme_1.ogg'),
+        
         document.fonts.ready 
     ]);
     
-    const game = new GameManager('gameCanvas', assets);
+    // Inject both dependencies into the game engine
+    const game = new GameManager('gameCanvas', assets, audio);
     game.start();
 };
 

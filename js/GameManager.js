@@ -5,36 +5,33 @@ import { Player } from './entities.js';
 import { UIManager } from './UIManager.js';
 
 export class GameManager {
-    constructor(canvasId, assets) {
+    // Add audioManager to constructor parameters
+    constructor(canvasId, assets, audioManager) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.assets = assets;
+        this.audioManager = audioManager; // Store reference
 
         this.canvas.width = GameConfig.GAME_WIDTH;
         this.canvas.height = GameConfig.GAME_HEIGHT;
-
-        // Must be called AFTER setting canvas dimensions to prevent context reset
         this.ctx.imageSmoothingEnabled = false;
 
         this.state = GameConfig.STATES.START;
         this.lastTime = 0;
 
-        // Track pointer position and state for UI and gameplay
         this.mouseX = this.canvas.width / 2;
         this.mouseY = this.canvas.height / 2;
         this.isMouseDown = false;
 
-        // Initialize UI Manager with callbacks to trigger game state changes
         this.uiManager = new UIManager(
             this.canvas.width,
             this.canvas.height,
-            () => this.initGame(), // Callback for Play button
-            () => this.initGame()  // Callback for Replay button
+            () => this.initGame(),
+            () => this.initGame()
         );
 
         this.setupInputs();
     }
-
     setupInputs() {
         const updatePointer = (e) => {
             const rect = this.canvas.getBoundingClientRect();
@@ -79,6 +76,8 @@ export class GameManager {
     }
 
     start() {
+        // Start title screen music. Might pend until user clicks anywhere.
+        this.audioManager.playMusic('title-theme');
         requestAnimationFrame(this.loop.bind(this));
     }
 
@@ -129,7 +128,10 @@ export class GameManager {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.state === GameConfig.STATES.START) {
-            this.uiManager.drawStartScreen(this.ctx);
+            // Fetch images and pass them to the UI manager (Dependency Injection)
+            const bgImage = this.assets.getImage('plain-sky');
+            const titleImage = this.assets.getImage('title');
+            this.uiManager.drawStartScreen(this.ctx, bgImage, titleImage);
         } else {
             // Draw game entities (visible during PLAYING and frozen during GAMEOVER)
             if (this.entityManager) {
