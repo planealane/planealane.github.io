@@ -1,9 +1,7 @@
 // js/entities.js
 import { GameConfig } from './GameConfig.js';
-import { PropsAtlas } from './Atlas.js';
-// js/entities.js
+import { PropsAtlas, ShipsAtlas } from './Atlas.js';
 import { BonusEffects } from './Effects.js';
-
 
 // Helper function to draw static text relative to an entity
 function drawFloatingText(ctx, text, x, y, color, fontSize = GameConfig.FONT_SIZE_MD) {
@@ -24,7 +22,6 @@ function drawFloatingText(ctx, text, x, y, color, fontSize = GameConfig.FONT_SIZ
     ctx.restore();
 }
 
-
 export class Entity {
     constructor(x, y, width, height, angle = 0, zIndex = 0) {
         this.x = x;
@@ -38,7 +35,7 @@ export class Entity {
 }
 
 export class SpriteEntity extends Entity {
-    // Replaced col/row logic with a generic 'frame' object {sx, sy, sWidth, sHeight}
+    // Uses a generic 'frame' object {sx, sy, sWidth, sHeight} mapped from Atlas
     constructor(x, y, width, height, image, frame, angle = 0, zIndex = 0) {
         super(x, y, width, height, angle, zIndex);
         this.image = image;
@@ -65,15 +62,16 @@ export class SpriteEntity extends Entity {
 }
 
 export class Player extends SpriteEntity {
-
-    constructor(image) {
-        const sWidth = image.width / 4;
-        const sHeight = image.height / 6;
-        const frame = { sx: 0, sy: 0, sWidth, sHeight };
+    // If no variantIndex is passed, it uses the config default
+    constructor(image, variantIndex = GameConfig.PLAYER_BASE_VARIANT) {
+        const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
+        const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
         super(GameConfig.GAME_WIDTH / 2, GameConfig.GAME_HEIGHT - 300, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, 0, 10);
 
-        // In Player constructor:
+        // Store current variant to know what to evolve from later
+        this.currentVariant = safeIndex;
+
         this.stats = {
             hp: GameConfig.PLAYER_BASE_HP,
             maxHp: GameConfig.PLAYER_BASE_HP,
@@ -83,35 +81,43 @@ export class Player extends SpriteEntity {
         };
         this.shootTimer = 0;
 
-        // Juice: Tilt properties
         this.targetAngle = 0;
-        this.maxTilt = 0.35; // Maximum rotation in radians (~20 degrees)
-        this.tiltResponsiveness = 0.15; // Interpolation speed (0 to 1)
+        this.maxTilt = 0.35;
+        this.tiltResponsiveness = 0.15;
+    }
+
+    // Method to dynamically change the player's ship appearance
+    setVariant(newVariantIndex) {
+        this.currentVariant = newVariantIndex % ShipsAtlas.PLAYER_VARIANTS;
+        
+        // Recalculate the frame coordinates using the Atlas
+        // and override the 'frame' property inherited from SpriteEntity
+        this.frame = ShipsAtlas.getFrame(this.currentVariant, this.image.width, this.image.height);
     }
 
     update(dt, pointerX, entityManager) {
-        // 1. Calcul des limites de l'écran avec la marge
+        // 1. Calculate screen boundaries with margins
         const minX = GameConfig.MARGIN_X + (this.width / 2);
         const maxX = GameConfig.GAME_WIDTH - GameConfig.MARGIN_X - (this.width / 2);
 
-        // 2. Calcul du delta de mouvement
+        // 2. Calculate movement delta
         const dx = pointerX - this.x;
 
-        // 3. Détermination de l'angle cible
+        // 3. Determine target angle based on movement direction
         this.targetAngle = Math.max(-this.maxTilt, Math.min(this.maxTilt, dx * 0.02));
 
-        // NOUVEAU : Si on touche (ou dépasse) les marges, on force l'angle cible à 0 (à plat)
+        // Flatten the ship if it touches or exceeds screen margins
         if (pointerX <= minX || pointerX >= maxX) {
             this.targetAngle = 0;
         }
 
-        // 4. Interpolation douce vers l'angle cible (gère automatiquement la transition)
+        // 4. Smooth interpolation towards target angle
         this.angle += (this.targetAngle - this.angle) * this.tiltResponsiveness;
 
-        // 5. Application de la position physique contrainte
+        // 5. Apply constrained physical position
         this.x = Math.max(minX, Math.min(maxX, pointerX));
 
-        // 6. Logique de tir
+        // 6. Shooting logic
         this.shootTimer += dt;
         if (this.shootTimer >= this.stats.shootInterval) {
             this.shootTimer = 0;
@@ -131,7 +137,7 @@ export class Player extends SpriteEntity {
                 this.y - this.height / 2,
                 entityManager.assets.getImage('props'),
                 this.stats.damage,
-                GameConfig.PROJECTILE_SIZE // On passe la taille cible
+                GameConfig.PROJECTILE_SIZE
             ));
         }
     }
@@ -142,22 +148,18 @@ export class Player extends SpriteEntity {
 
         // 2. Draw static HP text below the player
         const textY = this.y + (this.height / 2) + 25;
-
-        // Make sure drawFloatingText is accessible in this file
         drawFloatingText(ctx, `${this.stats.hp}`, this.x, textY, '#2ecc71'); // Green
     }
 }
 
-// js/entities.js
-
 export class Enemy extends SpriteEntity {
-    constructor(x, y, image, maxHp) {
-        const sWidth = image.width / 4;
-        const sHeight = image.height / 6;
-        const frame = { sx: 0, sy: 3 * sHeight, sWidth, sHeight };
+    constructor(x, y, image, maxHp, variantIndex = 0) {
+        // Enemy indices start after the player variants (offset of 12)
+        const safeIndex = ShipsAtlas.PLAYER_VARIANTS + (variantIndex % ShipsAtlas.ENEMY_VARIANTS);
+        const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
         super(x, y, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, Math.PI, 20);
-        // Inside Enemy and Gate constructors
+        
         this.speed = GameConfig.SCROLL_SPEED;
 
         // Juice: Breathing properties with variance to break the clone effect
@@ -166,7 +168,7 @@ export class Enemy extends SpriteEntity {
         this.breathingAmplitude = 0.02 + (Math.random() - 0.5) * 0.01;
         this.currentScale = 1.0;
 
-        // New: Impact scale modifier for hit feedback
+        // Impact scale modifier for hit feedback
         this.hitScale = 1.0;
 
         this.hp = maxHp;
@@ -175,15 +177,14 @@ export class Enemy extends SpriteEntity {
 
     // Method called by EntityManager when hit by a projectile
     onHit() {
-        // Shrink instantly to 60% of its size
+        // Shrink instantly to 90% of its size (or whatever desired scale)
         this.hitScale = 0.9; 
     }
 
     update(dt) {
         this.aliveTime += dt;
 
-        // 1. Calculate breathing scale using Cosine
-        // This creates a cycle around 1.0 (e.g., 1.0 - 0.05 to 1.0 + 0.05)
+        // 1. Calculate breathing scale using Cosine (cycles around 1.0)
         this.currentScale = 1.0 + Math.cos(this.aliveTime * this.breathingSpeed) * this.breathingAmplitude;
 
         // Smoothly interpolate the hitScale back to 1.0 after taking damage
@@ -197,7 +198,7 @@ export class Enemy extends SpriteEntity {
         if (this.y > GameConfig.GAME_HEIGHT + 200) this.markForDeletion = true;
     }
 
-    // We override draw to inject the scaling transformation
+    // Override draw to inject the scaling transformation
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
@@ -222,17 +223,14 @@ export class Enemy extends SpriteEntity {
 
         // Draw static HP text above the enemy
         const textY = this.y - (this.height / 2) - 25;
-        // Math.ceil prevents displaying decimals if damage is fractioned later
         drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#e74c3c'); // Red
     }
 }
 
 export class Projectile extends SpriteEntity {
-    // Remplacement de 'scale' par 'size'
     constructor(x, y, image, damage, size) {
         const frame = PropsAtlas.projectile;
 
-        // On passe directement la taille, comme on le fait pour le Joueur
         super(x, y, size, size, image, frame, 0, 10);
 
         this.speed = -0.8;
@@ -247,11 +245,11 @@ export class Projectile extends SpriteEntity {
         }
     }
 }
+
 export class Gate extends Entity {
     constructor(x, y) {
-        // Width 400 to fit well within the 540px lane, zIndex 5 (under everything)
+        // Width 400 to fit well within the lane, zIndex 5 (under everything)
         super(x, y, 400, 150, 0, 5);
-        // Inside Enemy and Gate constructors
         this.speed = GameConfig.SCROLL_SPEED;
     }
 
@@ -284,6 +282,7 @@ export class Collectible extends SpriteEntity {
         const itemSize = GameConfig.SHIP_SIZE / 2;
 
         super(x, y, itemSize, itemSize, image, frame, 0, 15);
+        
         this.type = type;
         this.value = value;
         this.effectDef = BonusEffects[this.type];
@@ -292,7 +291,7 @@ export class Collectible extends SpriteEntity {
         this.aliveTime = 0;
         this.floatSpeed = 0.004;
         this.floatAmplitude = 8;
-        this.pickupDelay = 300;
+        this.pickupDelay = 300; // Immunity timer
     }
 
     update(dt) {
@@ -323,7 +322,6 @@ export class Collectible extends SpriteEntity {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Fetch dynamic font size from config
         const fontSize = GameConfig.FONT_SIZE_MD;
 
         ctx.font = `bold ${fontSize}px ${GameConfig.FONT_FAMILY}`;

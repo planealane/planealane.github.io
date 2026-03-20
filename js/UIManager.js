@@ -2,6 +2,8 @@
 import { GameConfig } from './GameConfig.js';
 import { UIConfig } from './UIConfig.js';
 import { Button } from './Button.js';
+import { ShipsAtlas } from './Atlas.js';
+
 
 export class UIManager {
     constructor(canvasWidth, canvasHeight, onPlay, onReplay) {
@@ -12,7 +14,7 @@ export class UIManager {
 
         this.isTransitioning = false;
         this.transitionStartTime = 0;
-        
+
         this.isOpening = false;
         this.openingStartTime = 0;
 
@@ -25,14 +27,41 @@ export class UIManager {
     }
 
     initButtons() {
-        const btnWidth = 400; 
-        const btnHeight = GameConfig.FONT_SIZE_MD + 40;
-        const btnX = this.width / 2 - btnWidth / 2;
+        const baseBtnWidth = 400;
+        const baseBtnHeight = GameConfig.FONT_SIZE_MD + 40;
+        const centerX = this.width / 2;
 
-        this.startButton = new Button('PLAY', btnX, this.height / 2, btnWidth, btnHeight, 'start', () => this.onPlay());
+        const playBtnWidth = Math.min(baseBtnWidth * 2, this.width * 0.9);
+        const playBtnHeight = baseBtnHeight * 2;
+        const playBtnX = centerX - playBtnWidth / 2;
+        const playBtnY = this.height * 0.75;
 
-        // Button base Y is set dynamically during the slide animation
-        this.replayButton = new Button('REPLAY', btnX, this.height * 0.60, btnWidth, btnHeight, 'restart', () => this.startTransition());
+        this.startButton = new Button('PLAY', playBtnX, playBtnY, playBtnWidth, playBtnHeight, 'start', () => this.onPlay());
+
+        // Define an absolute anchor to calculate breathing without drifting
+        this.startButton.anchorY = playBtnY;
+
+        const replayBtnX = centerX - baseBtnWidth / 2;
+        const replayBtnY = this.height * 0.60;
+        this.replayButton = new Button('REPLAY', replayBtnX, replayBtnY, baseBtnWidth, baseBtnHeight, 'restart', () => this.startTransition());
+    }
+
+    update(mouseX, mouseY, isMouseDown, currentState) {
+        if (this.isTransitioning) return;
+
+        if (currentState === GameConfig.STATES.START) {
+            const time = performance.now();
+
+            // Animate baseY instead of y so the Button's internal hover logic still works
+            this.startButton.baseY = this.startButton.anchorY + Math.sin(time * UIConfig.BTN_BREATH_SPEED) * UIConfig.BTN_BREATH_AMP;
+
+            this.startButton.update(mouseX, mouseY, isMouseDown);
+        } else if (currentState === GameConfig.STATES.GAMEOVER) {
+            const elapsed = performance.now() - this.gameOverStartTime;
+            if (elapsed > UIConfig.GO_BTN_DELAY_MS) {
+                this.replayButton.update(mouseX, mouseY, isMouseDown);
+            }
+        }
     }
 
     startOpening() {
@@ -49,7 +78,7 @@ export class UIManager {
     startGameOver() {
         this.gameOverStartTime = performance.now();
         // Reset button state
-        this.replayButton.isHovered = false; 
+        this.replayButton.isHovered = false;
         this.replayButton.isPressed = false;
     }
 
@@ -128,7 +157,7 @@ export class UIManager {
         // 2. Bouncing "GAME OVER" Text
         const bounceProgress = Math.min(1, elapsed / UIConfig.GO_BOUNCE_DURATION_MS);
         const bounceEase = this.easeOutBounce(bounceProgress);
-        
+
         const targetTextY = this.height * 0.25;
         const startTextY = -200; // Start off-screen
         const currentTextY = startTextY + (targetTextY - startTextY) * bounceEase;
@@ -156,7 +185,7 @@ export class UIManager {
 
             // Fade in button
             ctx.globalAlpha = btnProgress;
-            
+
             if (!this.isTransitioning || (performance.now() - this.transitionStartTime) < UIConfig.ANIM_CLICK_PAUSE_MS) {
                 this.replayButton.draw(ctx);
             }
@@ -185,9 +214,11 @@ export class UIManager {
             }
         }
     }
-    
-    drawStartScreen(ctx, bgImage, titleImage) {
-        // 1. Draw background image or fallback
+
+drawStartScreen(ctx, bgImage, titleImage, playerImage) {
+        const time = performance.now();
+
+        // 1. Draw background
         if (bgImage) {
             ctx.drawImage(bgImage, 0, 0, this.width, this.height);
         } else {
@@ -195,21 +226,58 @@ export class UIManager {
             ctx.fillRect(0, 0, this.width, this.height);
         }
 
-        // 2. Draw title banner
+        // 2. Draw title banner with breathing effect
+        let staticTitleBottomY = 0; // Anchor point decoupled from animation
         if (titleImage) {
-            // Scale title to fit max 80% of screen width, maintaining aspect ratio
             const maxWidth = this.width * 0.8;
             const scale = Math.min(maxWidth / titleImage.width, 1);
             const scaledWidth = titleImage.width * scale;
             const scaledHeight = titleImage.height * scale;
             
             const titleX = this.width / 2 - scaledWidth / 2;
-            const titleY = this.height * 0.15; // Positioned 15% from the top
+            const titleBaseY = this.height * 0.10; 
+            const titleY = titleBaseY + Math.sin(time * UIConfig.TITLE_BREATH_SPEED) * UIConfig.TITLE_BREATH_AMP;
             
             ctx.drawImage(titleImage, titleX, titleY, scaledWidth, scaledHeight);
+            
+            // Calculate bottom Y using the static base, ignoring the sine wave
+            staticTitleBottomY = titleBaseY + scaledHeight; 
         }
 
-        // 3. Draw start button
+        // 3. Draw player sprite and exhaust trail (Stationary)
+        if (playerImage) {
+            const safeIndex = GameConfig.PLAYER_BASE_VARIANT % ShipsAtlas.PLAYER_VARIANTS;
+            const frame = ShipsAtlas.getFrame(safeIndex, playerImage.width, playerImage.height);
+            const displaySize = GameConfig.TITLE_PLAYER_SIZE; 
+            
+            const spriteX = this.width / 2 - displaySize / 2;
+            // Use the static reference so the ship does not move
+            const spriteY = staticTitleBottomY + (this.height * 0.10); 
+
+            // Draw Pixel Exhaust Trail
+            const trailCount = 5;
+            for (let i = 0; i < trailCount; i++) {
+                const t = (time + i * (1000 / trailCount)) % 1000;
+                const progress = t / 1000; 
+
+                const size = 15 * (1 - progress); 
+                const alpha = 1 - Math.pow(progress, 2); 
+                const pX = spriteX + displaySize / 2 - size / 2;
+                const pY = spriteY + displaySize * 0.85 + (progress * 60); 
+
+                ctx.fillStyle = `rgba(200, 200, 200, ${alpha})`;
+                ctx.fillRect(pX, pY, size, size);
+            }
+            
+            ctx.drawImage(
+                playerImage,
+                frame.sx, frame.sy, frame.sWidth, frame.sHeight,
+                spriteX, spriteY, displaySize, displaySize
+            );
+        }
+
+        // 4. Draw start button (Sync visual position)
+        this.startButton.baseY = this.startButton.anchorY + Math.sin(time * UIConfig.BTN_BREATH_SPEED) * UIConfig.BTN_BREATH_AMP;
         this.startButton.draw(ctx);
     }
 }

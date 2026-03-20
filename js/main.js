@@ -15,7 +15,7 @@ const init = async () => {
         assets.loadImage('title', 'assets/title.png'),
         
         // Add your audio file here (adjust extension if needed)
-        audio.loadSound('title-theme', 'assets/audio/title_theme_1.ogg'),
+        audio.loadSound('title-theme', 'assets/audio/title-theme_1.ogg'),
         
         document.fonts.ready 
     ]);

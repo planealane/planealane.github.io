@@ -7,16 +7,22 @@ export class AudioManager {
         this.isMuted = false;
     }
 
-    // Load an audio file and store it in the dictionary
+    // Load an audio file gracefully without breaking the Promise chain
     async loadSound(key, path) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             const audio = new Audio();
-            // oncanplaythrough ensures the browser has buffered enough to play
+
             audio.oncanplaythrough = () => {
                 this.sounds[key] = audio;
                 resolve(audio);
             };
-            audio.onerror = () => reject(new Error(`Failed to load audio: ${path}`));
+
+            // If it fails, log a warning but RESOLVE anyway so the game boots
+            audio.onerror = () => {
+                console.warn(`[AudioManager] Missing or unreadable audio file: ${path}. Proceeding without it.`);
+                resolve(null);
+            };
+
             audio.src = path;
         });
     }
@@ -40,7 +46,7 @@ export class AudioManager {
         if (playPromise !== undefined) {
             playPromise.catch(error => {
                 console.warn("Autoplay blocked. Waiting for user interaction to start music.");
-                
+
                 // Fallback: start music on the very first user click
                 const startOnInteract = () => {
                     this.currentMusic.play();
@@ -54,7 +60,7 @@ export class AudioManager {
     // Play one-shot sound effects
     playSound(key, volume = 1.0) {
         if (this.isMuted || !this.sounds[key]) return;
-        
+
         // Clone the node so the same sound can overlap (e.g., multiple lasers)
         const soundClone = this.sounds[key].cloneNode();
         soundClone.volume = volume;

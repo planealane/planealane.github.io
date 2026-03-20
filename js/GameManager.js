@@ -59,6 +59,19 @@ export class GameManager {
         this.canvas.addEventListener('click', () => {
             this.uiManager.handleClick(this.mouseX, this.mouseY, this.state);
         });
+
+        // Debug: press 'C' to cycle through player ship variants
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'c' || e.key === 'C') {
+                if (this.state === GameConfig.STATES.PLAYING) {
+                    const player = this.entityManager.entities.find(ent => ent instanceof Player);
+                    if (player) {
+                        // Increment variant and set it
+                        player.setVariant(player.currentVariant + 1);
+                    }
+                }
+            }
+        });
     }
 
     initGame() {
@@ -131,7 +144,10 @@ export class GameManager {
             // Fetch images and pass them to the UI manager (Dependency Injection)
             const bgImage = this.assets.getImage('plain-sky');
             const titleImage = this.assets.getImage('title');
-            this.uiManager.drawStartScreen(this.ctx, bgImage, titleImage);
+            const playerImage = this.assets.getImage('ships'); // Get the ships spritesheet
+
+            // Pass the playerImage as the 4th argument
+            this.uiManager.drawStartScreen(this.ctx, bgImage, titleImage, playerImage);
         } else {
             // Draw game entities (visible during PLAYING and frozen during GAMEOVER)
             if (this.entityManager) {

@@ -34,9 +34,17 @@ export const UIConfig = {
     ANIM_OPEN_DURATION_MS: 800, // New: Duration for the opening wipe
     ANIM_FILL_CIRCLE_COLOR: '#000000',
 
+    // Breathing animations for Title Screen
+    TITLE_BREATH_SPEED: 0.002,
+    TITLE_BREATH_AMP: 10,
+    BTN_BREATH_SPEED: 0.0015,
+    BTN_BREATH_AMP: 8,
+
     // Game Over Sequence Timings
     GO_FADE_DURATION_MS: 1500,    // Slow background darkening
     GO_BOUNCE_DURATION_MS: 1500,  // Text falling and bouncing
     GO_BTN_DELAY_MS: 1200,        // Wait before showing button
     GO_BTN_SLIDE_MS: 600          // Button sliding duration
+
+
 };

@@ -16,3 +16,21 @@ export const PropsAtlas = {
 
     bonus: { sx: 16, sy: 32, sWidth: 16, sHeight: 16 }
 };
+
+// Dynamic grid mapping for ships (4 columns, 6 rows)
+export const ShipsAtlas = {
+    PLAYER_VARIANTS: 12,
+    ENEMY_VARIANTS: 12,
+    
+    // Helper function built into the atlas to get any ship frame
+    getFrame: (index, imageWidth, imageHeight) => {
+        const cols = 4;
+        const rows = 6;
+        const sw = imageWidth / cols;
+        const sh = imageHeight / rows;
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        
+        return { sx: col * sw, sy: row * sh, sWidth: sw, sHeight: sh };
+    }
+};

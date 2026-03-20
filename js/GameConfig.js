@@ -51,6 +51,11 @@ export const GameConfig = {
     PLAYER_BASE_DMG: 10,
     ENEMY_BASE_HP: 20,
 
+    // Default ship sprite index (0 to 11 for yellow ships)
+    PLAYER_BASE_VARIANT: 10,
+
+    TITLE_PLAYER_SIZE: 450,
+
     // Scaling factors
     ENEMY_HP_SCALING: 0.5,
 
