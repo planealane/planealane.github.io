@@ -6,6 +6,14 @@
     font-style: normal;
 }
 
+canvas {
+    /* Prevent browser from blurring the canvas when scaling via CSS */
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
 body,
 html {
     margin: 0;

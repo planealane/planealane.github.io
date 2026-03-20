@@ -1,12 +1,19 @@
 // js/GameConfig.js
 
 export const GameConfig = {
+    // Game States
+    STATES: {
+        START: 0,
+        PLAYING: 1,
+        GAMEOVER: 2
+    },
+
     FONT_FAMILY: "'GameFont', sans-serif",
     FONT_SIZE_SM: 40,
     FONT_SIZE_MD: 60, // Standard floating text
     FONT_SIZE_LG: 80, // Big announcements or Gates
 
-    
+
     GAME_WIDTH: 1080,
     GAME_HEIGHT: 1920,
 
@@ -35,8 +42,9 @@ export const GameConfig = {
     // ENEMY_LANES: [297, 459, 621, 783]
     // GATE_LANES: [378, 702]
 
-    // Size of the player/ennemies
+    // Size of the player/ennemies/props
     SHIP_SIZE: 200,
+    PROJECTILE_SIZE: 64,
 
     // Base stats
     PLAYER_BASE_HP: 300,
@@ -47,7 +55,7 @@ export const GameConfig = {
     ENEMY_HP_SCALING: 0.5,
 
     // Helper method to calculate enemy HP based on wave/spawn count
-    calculateEnemyHp: function(currentWave) {
+    calculateEnemyHp: function (currentWave) {
         return Math.floor(this.ENEMY_BASE_HP + (currentWave * this.ENEMY_HP_SCALING));
     }
 };

@@ -50,7 +50,7 @@ export class EntityManager {
         return pLeft < eRight && pRight > eLeft && pTop < eBottom && pBottom > eTop;
     }
 
-    handleCollisions() {
+handleCollisions() {
         const projectiles = this.entities.filter(e => e instanceof Projectile);
         const enemies = this.entities.filter(e => e instanceof Enemy);
         const collectibles = this.entities.filter(e => e instanceof Collectible);
@@ -70,11 +70,12 @@ export class EntityManager {
                     projectile.markForDeletion = true;
                     enemy.hp -= projectile.damage;
 
+                    // Trigger visual hit feedback
+                    enemy.onHit();
+
                     if (enemy.hp <= 0) {
                         enemy.markForDeletion = true;
                         this.addEntity(new ExplosionEntity(enemy.x, enemy.y, this.assets.getImage('props')));
-
-                        // 100% drop rate via DRY method
                         this.spawnLoot(enemy.x, enemy.y);
                     }
                 }
@@ -96,6 +97,8 @@ export class EntityManager {
 
                 if (player.stats.hp <= 0) {
                     console.log("GAME OVER - Player HP reached 0");
+                    // Spawn explosion at player coordinates
+                    this.addEntity(new ExplosionEntity(player.x, player.y, this.assets.getImage('props')));
                     player.markForDeletion = true;
                 }
             }
@@ -108,7 +111,7 @@ export class EntityManager {
             // Ignore collision if the item is in its immunity frame
             if (collectible.pickupDelay > 0) return;
 
-            // Use extended collision : adds 60px of invisible hitbox upwards
+            // Use extended collision: adds 60px of invisible hitbox upwards
             if (this.checkExtendedCollision(player, collectible, 60)) {
                 collectible.markForDeletion = true;
                 collectible.effectDef.apply(player, collectible.value);
@@ -125,7 +128,6 @@ export class EntityManager {
             }
         });
     }
-
     draw(ctx) {
         const sortedEntities = [...this.entities].sort((a, b) => a.zIndex - b.zIndex);
         sortedEntities.forEach(entity => entity.draw(ctx));

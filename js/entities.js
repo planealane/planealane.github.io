@@ -119,7 +119,6 @@ export class Player extends SpriteEntity {
         }
     }
 
-    // Inside Player class
     fireProjectiles(entityManager) {
         const spacing = 40;
         const count = this.stats.projectileCount;
@@ -127,8 +126,13 @@ export class Player extends SpriteEntity {
 
         for (let i = 0; i < count; i++) {
             const projX = startX + (i * spacing);
-            // Pass player's current damage to the projectile
-            entityManager.addEntity(new Projectile(projX, this.y - this.height / 2, entityManager.assets.getImage('props'), this.stats.damage));
+            entityManager.addEntity(new Projectile(
+                projX,
+                this.y - this.height / 2,
+                entityManager.assets.getImage('props'),
+                this.stats.damage,
+                GameConfig.PROJECTILE_SIZE // On passe la taille cible
+            ));
         }
     }
 
@@ -140,7 +144,7 @@ export class Player extends SpriteEntity {
         const textY = this.y + (this.height / 2) + 25;
 
         // Make sure drawFloatingText is accessible in this file
-        drawFloatingText(ctx, `${this.stats.hp} HP`, this.x, textY, '#2ecc71'); // Green
+        drawFloatingText(ctx, `${this.stats.hp}`, this.x, textY, '#2ecc71'); // Green
     }
 }
 
@@ -152,8 +156,6 @@ export class Enemy extends SpriteEntity {
         const sHeight = image.height / 6;
         const frame = { sx: 0, sy: 3 * sHeight, sWidth, sHeight };
 
-
-
         super(x, y, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, Math.PI, 20);
         // Inside Enemy and Gate constructors
         this.speed = GameConfig.SCROLL_SPEED;
@@ -164,8 +166,17 @@ export class Enemy extends SpriteEntity {
         this.breathingAmplitude = 0.02 + (Math.random() - 0.5) * 0.01;
         this.currentScale = 1.0;
 
+        // New: Impact scale modifier for hit feedback
+        this.hitScale = 1.0;
+
         this.hp = maxHp;
         this.maxHp = maxHp;
+    }
+
+    // Method called by EntityManager when hit by a projectile
+    onHit() {
+        // Shrink instantly to 60% of its size
+        this.hitScale = 0.9; 
     }
 
     update(dt) {
@@ -174,6 +185,11 @@ export class Enemy extends SpriteEntity {
         // 1. Calculate breathing scale using Cosine
         // This creates a cycle around 1.0 (e.g., 1.0 - 0.05 to 1.0 + 0.05)
         this.currentScale = 1.0 + Math.cos(this.aliveTime * this.breathingSpeed) * this.breathingAmplitude;
+
+        // Smoothly interpolate the hitScale back to 1.0 after taking damage
+        if (this.hitScale < 1.0) {
+            this.hitScale += (1.0 - this.hitScale) * 0.15; 
+        }
 
         // 2. Normal vertical movement
         this.y += this.speed * dt;
@@ -186,7 +202,10 @@ export class Enemy extends SpriteEntity {
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-        ctx.scale(this.currentScale, this.currentScale);
+        
+        // Combine base scale (breathing) and hit scale (shrinking)
+        const finalScale = this.currentScale * this.hitScale;
+        ctx.scale(finalScale, finalScale);
 
         ctx.drawImage(
             this.image,
@@ -203,42 +222,31 @@ export class Enemy extends SpriteEntity {
 
         // Draw static HP text above the enemy
         const textY = this.y - (this.height / 2) - 25;
-        drawFloatingText(ctx, this.hp.toString(), this.x, textY, '#e74c3c'); // Red
+        // Math.ceil prevents displaying decimals if damage is fractioned later
+        drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#e74c3c'); // Red
     }
 }
 
-export class Projectile extends Entity {
-    constructor(x, y, image, damage) {
-        super(x, y, 40, 40, 0, 10);
-        this.image = image;
-        this.speed = -0.8; // Vitesse vers le haut
-        this.damage = damage; // Les fameux dégâts transmis par le joueur
+export class Projectile extends SpriteEntity {
+    // Remplacement de 'scale' par 'size'
+    constructor(x, y, image, damage, size) {
+        const frame = PropsAtlas.projectile;
+
+        // On passe directement la taille, comme on le fait pour le Joueur
+        super(x, y, size, size, image, frame, 0, 10);
+
+        this.speed = -0.8;
+        this.damage = damage;
     }
 
     update(dt) {
-        // Le projectile doit monter
         this.y += this.speed * dt;
 
-        // Nettoyage quand il sort de l'écran par le haut
         if (this.y < -100) {
             this.markForDeletion = true;
         }
     }
-
-    draw(ctx) {
-        // Ta logique d'affichage ici (drawImage ou simple rectangle)
-        // Si ton image est un spritesheet "props", assure-toi de dessiner la bonne frame
-        ctx.save();
-        ctx.translate(this.x, this.y);
-
-        // Exemple basique si tu as perdu ta méthode draw() :
-        ctx.fillStyle = '#f1c40f'; // Laser jaune
-        ctx.fillRect(-this.width / 4, -this.height / 2, this.width / 2, this.height);
-
-        ctx.restore();
-    }
 }
-
 export class Gate extends Entity {
     constructor(x, y) {
         // Width 400 to fit well within the 540px lane, zIndex 5 (under everything)
