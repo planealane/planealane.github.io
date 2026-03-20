@@ -1,4 +1,13 @@
-body, html {
+/* style.css */
+@font-face {
+    font-family: 'GameFont';
+    src: url('../assets/fonts/RasterForgeRegular-JpBgm.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+body,
+html {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -7,7 +16,8 @@ body, html {
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden; /* Prevent scrolling on mobile */
+    overflow: hidden;
+    /* Prevent scrolling on mobile */
 }
 
 #game-container {
@@ -25,6 +35,6 @@ body, html {
     max-width: 100vw;
     background-color: #222;
     /* Prevent default touch actions like pinch-to-zoom or scrolling */
-    touch-action: none; 
-    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    touch-action: none;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
 }

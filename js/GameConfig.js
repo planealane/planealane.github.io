@@ -1,11 +1,22 @@
 // js/GameConfig.js
 
 export const GameConfig = {
+    FONT_FAMILY: "'GameFont', sans-serif",
+    FONT_SIZE_SM: 40,
+    FONT_SIZE_MD: 60, // Standard floating text
+    FONT_SIZE_LG: 80, // Big announcements or Gates
+
+    
     GAME_WIDTH: 1080,
     GAME_HEIGHT: 1920,
 
-    // Lane centers for nested grids
+    // Global downward scrolling speed for all entities
+    SCROLL_SPEED: 0.3,
 
+    // Playable area margin (10% of width)
+    MARGIN_X: 108,
+
+    // Lane centers for nested grids
 
     //No margin
     //ENEMY_LANES: [135, 405, 675, 945]
@@ -26,4 +37,17 @@ export const GameConfig = {
 
     // Size of the player/ennemies
     SHIP_SIZE: 200,
+
+    // Base stats
+    PLAYER_BASE_HP: 300,
+    PLAYER_BASE_DMG: 10,
+    ENEMY_BASE_HP: 20,
+
+    // Scaling factors
+    ENEMY_HP_SCALING: 0.5,
+
+    // Helper method to calculate enemy HP based on wave/spawn count
+    calculateEnemyHp: function(currentWave) {
+        return Math.floor(this.ENEMY_BASE_HP + (currentWave * this.ENEMY_HP_SCALING));
+    }
 };

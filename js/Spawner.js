@@ -4,40 +4,43 @@ import { GameConfig } from './GameConfig.js';
 
 export class Spawner {
     constructor() {
-        this.enemyTimer = 0;
-        this.enemyInterval = 1000; // Spawn 1 enemy every second for testing
+        this.spawnTimer = 0;
+        this.spawnInterval = 1200; // 1 tick toutes les 1.2 secondes
 
-        this.gateTimer = 0;
-        this.gateInterval = 6000; // Spawn gates every 6 seconds
+        this.spawnCount = 0;
+        this.gateFrequency = 5; // Toutes les 5 rangées, on fait spawn des portes
     }
 
     update(dt, entityManager) {
-        // Enemy spawning logic
-        this.enemyTimer += dt;
-        if (this.enemyTimer >= this.enemyInterval) {
-            this.enemyTimer = 0;
-            this.spawnEnemy(entityManager);
-        }
+        this.spawnTimer += dt;
 
-        // Gate spawning logic
-        this.gateTimer += dt;
-        if (this.gateTimer >= this.gateInterval) {
-            this.gateTimer = 0;
-            this.spawnGates(entityManager);
+        // Le "Tick" global
+        if (this.spawnTimer >= this.spawnInterval) {
+            this.spawnTimer = 0;
+            this.spawnCount++;
+
+            // Logique exclusive : soit des portes, soit un ennemi
+            if (this.spawnCount % this.gateFrequency === 0) {
+                this.spawnGates(entityManager);
+            } else {
+                this.spawnEnemy(entityManager);
+            }
         }
     }
 
     spawnEnemy(entityManager) {
-        // Pick a random lane from the 4 available
         const randomLaneIndex = Math.floor(Math.random() * GameConfig.ENEMY_LANES.length);
         const x = GameConfig.ENEMY_LANES[randomLaneIndex];
-        
-        entityManager.addEntity(new Enemy(x, -100, entityManager.assets.getImage('ships')));
+
+        // Calculate HP based on current spawn count
+        const scaledHp = GameConfig.calculateEnemyHp(this.spawnCount);
+
+        entityManager.addEntity(new Enemy(x, -200, entityManager.assets.getImage('ships'), scaledHp));
     }
 
     spawnGates(entityManager) {
-        // Spawn a gate on both lanes simultaneously
         GameConfig.GATE_LANES.forEach(x => {
+            // Spawn exactement à la même hauteur initiale que les ennemis
             entityManager.addEntity(new Gate(x, -200));
         });
     }

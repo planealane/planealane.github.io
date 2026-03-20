@@ -12,5 +12,7 @@ export const PropsAtlas = {
         { sx: 96,  sy: 0, sWidth: 16, sHeight: 16 }, // Frame 3
         { sx: 112, sy: 0, sWidth: 16, sHeight: 16 }, // Frame 4
         { sx: 128, sy: 0, sWidth: 16, sHeight: 16 }  // Frame 5
-    ]
+    ],
+
+    bonus: { sx: 16, sy: 32, sWidth: 16, sHeight: 16 }
 };
