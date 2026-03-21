@@ -3,16 +3,21 @@ import { UIConfig } from './UIConfig.js';
 import { GameConfig } from './GameConfig.js';
 
 export class Button {
-    // Added themeKey parameter
-    constructor(text, x, y, width, height, themeKey, onClickCallback) {
+    // 1. Signature updated to use an optional config object
+    constructor(text, x, y, themeKey, onClickCallback, options = {}) {
         this.text = text;
         this.baseX = x;
         this.baseY = y;
-        this.width = width;
-        this.height = height;
+        this.anchorY = y; // Absolute origin for external animations (like breathing)
         this.onClick = onClickCallback;
 
-        // Fetch the specific theme from config, fallback to primary if not found
+        // 2. Default dimensions with optional overrides
+        const defaults = UIConfig.BUTTON_DEFAULTS;
+        this.width = options.width || defaults.width;
+        this.height = options.height || defaults.height;
+        this.fontSize = options.fontSize || GameConfig.FONT_SIZE_MD;
+
+        // 3. Theme selection
         this.theme = UIConfig.BUTTON_THEMES[themeKey] || UIConfig.BUTTON_THEMES.primary;
 
         this.isHovered = false;
@@ -40,36 +45,37 @@ export class Button {
     }
 
     draw(ctx) {
-        // Use theme colors dynamically
+        const anims = UIConfig.ANIMATIONS;
         let innerColor = this.theme.normal;
-        let innerYOffset = UIConfig.BTN_INNER_SHIFT; 
+        let innerYOffset = anims.BTN_INNER_SHIFT; 
         let currentY = this.baseY;
 
         if (this.isPressed) {
             innerColor = this.theme.click;
-            innerYOffset = -UIConfig.BTN_INNER_SHIFT; 
+            innerYOffset = -anims.BTN_INNER_SHIFT; 
         } else if (this.isHovered) {
             innerColor = this.theme.hover;
-            currentY -= UIConfig.BTN_HOVER_RISE; 
+            currentY -= anims.BTN_HOVER_RISE; 
         }
 
         ctx.save();
 
+        const radius = UIConfig.BUTTON_DEFAULTS.cornerRadius;
+
         // 1. Outer Chrome Border
         ctx.fillStyle = this.theme.border;
         ctx.beginPath();
-        ctx.roundRect(this.baseX, currentY, this.width, this.height, 15);
+        ctx.roundRect(this.baseX, currentY, this.width, this.height, radius);
         ctx.fill();
 
         // 2. Inner Button Background
         ctx.fillStyle = innerColor;
         ctx.beginPath();
-        ctx.roundRect(this.baseX, currentY + innerYOffset, this.width, this.height, 15);
+        ctx.roundRect(this.baseX, currentY + innerYOffset, this.width, this.height, radius);
         ctx.fill();
 
         // 3. Hover Glow Highlight
         if (this.isHovered && !this.isPressed) {
-            // Optional: You could also put the glow color in the theme if needed
             ctx.shadowColor = 'rgba(255, 255, 255, 0.3)'; 
             ctx.shadowBlur = 10;
         } else {
@@ -78,7 +84,7 @@ export class Button {
 
         // 4. Button Text
         ctx.fillStyle = this.theme.text;
-        ctx.font = `bold ${GameConfig.FONT_SIZE_MD}px ${GameConfig.FONT_FAMILY}`;
+        ctx.font = `bold ${this.fontSize}px ${GameConfig.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         

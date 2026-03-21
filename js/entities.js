@@ -1,27 +1,44 @@
-// js/entities.js
+// js/Entities.js
 import { GameConfig } from './GameConfig.js';
 import { PropsAtlas, ShipsAtlas } from './Atlas.js';
 import { BonusEffects } from './Effects.js';
+import { gameEvents, EVENTS } from './EventBus.js'; // Integration de l'EventBus
 
-// Helper function to draw static text relative to an entity
+// ============================================================================
+// 1. UTILITIES & HELPERS
+// ============================================================================
+
+/**
+ * Draws text with a black outline for better readability against varied backgrounds.
+ * Used for HP bars, damage numbers, and loot values.
+ */
 function drawFloatingText(ctx, text, x, y, color, fontSize = GameConfig.FONT_SIZE_MD) {
     ctx.save();
 
-    // Inject the dynamic font size
     ctx.font = `bold ${fontSize}px ${GameConfig.FONT_FAMILY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Outline width scaled slightly with font size for better readability
+    // Outline
     ctx.strokeStyle = '#000';
     ctx.lineWidth = fontSize * 0.1;
     ctx.strokeText(text, x, y);
 
+    // Inner text
     ctx.fillStyle = color;
     ctx.fillText(text, x, y);
+    
     ctx.restore();
 }
 
+// ============================================================================
+// 2. BASE CLASSES (ARCHITECTURE)
+// ============================================================================
+
+/**
+ * Absolute base class for anything that exists in the game world.
+ * Handles pure logical coordinates, dimensions, and lifecycle state.
+ */
 export class Entity {
     constructor(x, y, width, height, angle = 0, zIndex = 0) {
         this.x = x;
@@ -30,16 +47,20 @@ export class Entity {
         this.height = height;
         this.angle = angle;
         this.zIndex = zIndex;
-        this.markForDeletion = false;
+        
+        // When true, the EntityManager will delete this object on the next frame
+        this.markForDeletion = false; 
     }
 }
 
+/**
+ * Base class for entities that render a portion of a spritesheet (Atlas).
+ */
 export class SpriteEntity extends Entity {
-    // Uses a generic 'frame' object {sx, sy, sWidth, sHeight} mapped from Atlas
     constructor(x, y, width, height, image, frame, angle = 0, zIndex = 0) {
         super(x, y, width, height, angle, zIndex);
         this.image = image;
-        this.frame = frame;
+        this.frame = frame; // Expected format: {sx, sy, sWidth, sHeight}
     }
 
     draw(ctx) {
@@ -48,28 +69,25 @@ export class SpriteEntity extends Entity {
         ctx.rotate(this.angle);
         ctx.drawImage(
             this.image,
-            this.frame.sx,
-            this.frame.sy,
-            this.frame.sWidth,
-            this.frame.sHeight,
-            -this.width / 2,
-            -this.height / 2,
-            this.width,
-            this.height
+            this.frame.sx, this.frame.sy, this.frame.sWidth, this.frame.sHeight,
+            -this.width / 2, -this.height / 2,
+            this.width, this.height
         );
         ctx.restore();
     }
 }
 
+// ============================================================================
+// 3. ACTORS (PLAYER & ENEMIES)
+// ============================================================================
+
 export class Player extends SpriteEntity {
-    // If no variantIndex is passed, it uses the config default
     constructor(image, variantIndex = GameConfig.PLAYER_BASE_VARIANT) {
         const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
         super(GameConfig.GAME_WIDTH / 2, GameConfig.GAME_HEIGHT - 300, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, 0, 10);
 
-        // Store current variant to know what to evolve from later
         this.currentVariant = safeIndex;
 
         this.stats = {
@@ -79,45 +97,38 @@ export class Player extends SpriteEntity {
             shootInterval: 1000,
             projectileCount: 1
         };
+        
         this.shootTimer = 0;
-
+        
+        // Physics for visual banking (tilting) when moving horizontally
         this.targetAngle = 0;
         this.maxTilt = 0.35;
         this.tiltResponsiveness = 0.15;
     }
 
-    // Method to dynamically change the player's ship appearance
     setVariant(newVariantIndex) {
         this.currentVariant = newVariantIndex % ShipsAtlas.PLAYER_VARIANTS;
-        
-        // Recalculate the frame coordinates using the Atlas
-        // and override the 'frame' property inherited from SpriteEntity
         this.frame = ShipsAtlas.getFrame(this.currentVariant, this.image.width, this.image.height);
     }
 
     update(dt, pointerX, entityManager) {
-        // 1. Calculate screen boundaries with margins
+        // 1. Constrain to screen bounds
         const minX = GameConfig.MARGIN_X + (this.width / 2);
         const maxX = GameConfig.GAME_WIDTH - GameConfig.MARGIN_X - (this.width / 2);
 
-        // 2. Calculate movement delta
+        // 2. Calculate movement for visual tilt
         const dx = pointerX - this.x;
-
-        // 3. Determine target angle based on movement direction
         this.targetAngle = Math.max(-this.maxTilt, Math.min(this.maxTilt, dx * 0.02));
 
-        // Flatten the ship if it touches or exceeds screen margins
         if (pointerX <= minX || pointerX >= maxX) {
-            this.targetAngle = 0;
+            this.targetAngle = 0; // Flatten ship at edges
         }
 
-        // 4. Smooth interpolation towards target angle
+        // 3. Apply physics
         this.angle += (this.targetAngle - this.angle) * this.tiltResponsiveness;
-
-        // 5. Apply constrained physical position
         this.x = Math.max(minX, Math.min(maxX, pointerX));
 
-        // 6. Shooting logic
+        // 4. Handle Combat (Shooting)
         this.shootTimer += dt;
         if (this.shootTimer >= this.stats.shootInterval) {
             this.shootTimer = 0;
@@ -140,65 +151,68 @@ export class Player extends SpriteEntity {
                 GameConfig.PROJECTILE_SIZE
             ));
         }
+
+        // [EVENT] Broadcast shooting sound. AudioManager will catch this.
+        // Assuming you have a 'laser' sound key in your assets.
+        gameEvents.emit(EVENTS.PLAY_SFX, { id: 'laser', volume: 0.4 });
     }
 
     draw(ctx) {
-        // 1. Draw the sprite with its transformations (tilt) handled by parent
         super.draw(ctx);
-
-        // 2. Draw static HP text below the player
         const textY = this.y + (this.height / 2) + 25;
-        drawFloatingText(ctx, `${this.stats.hp}`, this.x, textY, '#2ecc71'); // Green
+        drawFloatingText(ctx, `${this.stats.hp}`, this.x, textY, '#2ecc71');
     }
 }
 
 export class Enemy extends SpriteEntity {
     constructor(x, y, image, maxHp, variantIndex = 0) {
-        // Enemy indices start after the player variants (offset of 12)
         const safeIndex = ShipsAtlas.PLAYER_VARIANTS + (variantIndex % ShipsAtlas.ENEMY_VARIANTS);
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
+        // Enemies face downward (Math.PI)
         super(x, y, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, Math.PI, 20);
         
         this.speed = GameConfig.SCROLL_SPEED;
 
-        // Juice: Breathing properties with variance to break the clone effect
+        // Juice: Breathing properties (idle animation)
         this.aliveTime = Math.random() * Math.PI * 2;
         this.breathingSpeed = 0.0015 + (Math.random() - 0.5) * 0.0005;
         this.breathingAmplitude = 0.02 + (Math.random() - 0.5) * 0.01;
         this.currentScale = 1.0;
-
-        // Impact scale modifier for hit feedback
         this.hitScale = 1.0;
 
         this.hp = maxHp;
         this.maxHp = maxHp;
     }
 
-    // Method called by EntityManager when hit by a projectile
+    /**
+     * Triggered by EntityManager when a projectile AABB intersects this enemy.
+     */
     onHit() {
-        // Shrink instantly to 90% of its size (or whatever desired scale)
+        // Visual Juice: instant shrink
         this.hitScale = 0.9; 
+
+        // [EVENT] Broadcast hit sound.
+        // Replace 'hit' with your actual sound key if different.
+        gameEvents.emit(EVENTS.PLAY_SFX, { id: 'hit', volume: 0.5 });
     }
 
     update(dt) {
         this.aliveTime += dt;
 
-        // 1. Calculate breathing scale using Cosine (cycles around 1.0)
+        // Animate idle breathing
         this.currentScale = 1.0 + Math.cos(this.aliveTime * this.breathingSpeed) * this.breathingAmplitude;
 
-        // Smoothly interpolate the hitScale back to 1.0 after taking damage
+        // Recover from hit scale smoothly
         if (this.hitScale < 1.0) {
             this.hitScale += (1.0 - this.hitScale) * 0.15; 
         }
 
-        // 2. Normal vertical movement
+        // Movement
         this.y += this.speed * dt;
-
         if (this.y > GameConfig.GAME_HEIGHT + 200) this.markForDeletion = true;
     }
 
-    // Override draw to inject the scaling transformation
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
@@ -210,46 +224,43 @@ export class Enemy extends SpriteEntity {
 
         ctx.drawImage(
             this.image,
-            this.frame.sx,
-            this.frame.sy,
-            this.frame.sWidth,
-            this.frame.sHeight,
-            -this.width / 2,
-            -this.height / 2,
-            this.width,
-            this.height
+            this.frame.sx, this.frame.sy, this.frame.sWidth, this.frame.sHeight,
+            -this.width / 2, -this.height / 2,
+            this.width, this.height
         );
         ctx.restore();
 
-        // Draw static HP text above the enemy
         const textY = this.y - (this.height / 2) - 25;
-        drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#e74c3c'); // Red
+        drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#e74c3c');
     }
 }
+
+// ============================================================================
+// 4. COMBAT & EFFECTS
+// ============================================================================
 
 export class Projectile extends SpriteEntity {
     constructor(x, y, image, damage, size) {
         const frame = PropsAtlas.projectile;
-
         super(x, y, size, size, image, frame, 0, 10);
 
-        this.speed = -0.8;
+        this.speed = -0.8; // Moves UP the screen
         this.damage = damage;
     }
 
     update(dt) {
         this.y += this.speed * dt;
-
-        if (this.y < -100) {
-            this.markForDeletion = true;
-        }
+        if (this.y < -100) this.markForDeletion = true;
     }
 }
 
+// ============================================================================
+// 5. ENVIRONMENT & LOOT
+// ============================================================================
+
 export class Gate extends Entity {
     constructor(x, y) {
-        // Width 400 to fit well within the lane, zIndex 5 (under everything)
-        super(x, y, 400, 150, 0, 5);
+        super(x, y, 400, 150, 0, 5); // Width 400, rendered below ships
         this.speed = GameConfig.SCROLL_SPEED;
     }
 
@@ -262,7 +273,6 @@ export class Gate extends Entity {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Simple translucent placeholder rectangle
         ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
         ctx.strokeStyle = '#3498db';
         ctx.lineWidth = 4;
@@ -286,18 +296,19 @@ export class Collectible extends SpriteEntity {
         this.type = type;
         this.value = value;
         this.effectDef = BonusEffects[this.type];
+        
         this.speed = GameConfig.SCROLL_SPEED;
-
         this.aliveTime = 0;
         this.floatSpeed = 0.004;
         this.floatAmplitude = 8;
-        this.pickupDelay = 300; // Immunity timer
+        
+        // I-frames to prevent accidental immediate pickup upon spawning
+        this.pickupDelay = 300; 
     }
 
     update(dt) {
         this.aliveTime += dt;
 
-        // Decrease immunity timer
         if (this.pickupDelay > 0) {
             this.pickupDelay -= dt;
         }
@@ -307,36 +318,30 @@ export class Collectible extends SpriteEntity {
     }
 
     draw(ctx) {
-        // Calculate vertical offset using Sine wave
         const floatOffset = Math.sin(this.aliveTime * this.floatSpeed) * this.floatAmplitude;
 
-        // Temporarily shift physical Y for the sprite render
+        // Apply visual float without affecting logical physical Y
         const originalY = this.y;
         this.y += floatOffset;
 
         super.draw(ctx);
 
-        // Restore actual Y position immediately
         this.y = originalY;
 
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        const fontSize = GameConfig.FONT_SIZE_MD;
+        const textY = -this.height / 2 - (GameConfig.FONT_SIZE_MD / 2);
 
-        ctx.font = `bold ${fontSize}px ${GameConfig.FONT_FAMILY}`;
+        ctx.font = `bold ${GameConfig.FONT_SIZE_MD}px ${GameConfig.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // Position text above the item's true logical top
-        const textY = -this.height / 2 - (fontSize / 2);
-
-        // Outline for readability
+        // Draw text using effect specific color
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = fontSize * 0.1;
+        ctx.lineWidth = GameConfig.FONT_SIZE_MD * 0.1;
         ctx.strokeText(`+${this.value}`, 0, textY);
 
-        // Inner text
         ctx.fillStyle = this.effectDef.color;
         ctx.fillText(`+${this.value}`, 0, textY);
 

@@ -1,5 +1,5 @@
 // js/Explosion.js
-import { SpriteEntity } from './entities.js';
+import { SpriteEntity } from './Entities.js';
 import { PropsAtlas } from './Atlas.js';
 import { GameConfig } from './GameConfig.js';
 

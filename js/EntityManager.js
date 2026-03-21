@@ -1,13 +1,18 @@
 // js/EntityManager.js
-import { Player, Enemy, Projectile, Gate, Collectible } from './entities.js';
+import { Player } from './Player.js';
+import { Enemy } from './Enemy.js';
+import { Projectile } from './Projectile.js';
+import { Gate } from './Gate.js';
+import { Collectible } from './Collectible.js';
 import { ExplosionEntity } from './Explosion.js';
-import { checkAABB } from './physics.js';
+import { checkAABB, checkExtendedAABB } from './Physics.js';
 import { Spawner } from './Spawner.js';
+import { gameEvents, EVENTS } from './EventBus.js'; // Import EventBus
 
 export class EntityManager {
     constructor(assets) {
-        this.entities = [];
         this.assets = assets;
+        this.entities = [];
         this.spawner = new Spawner();
     }
 
@@ -18,39 +23,20 @@ export class EntityManager {
     update(dt, playerX) {
         this.entities.forEach(entity => entity.update(dt, playerX, this));
         this.spawner.update(dt, this);
-
         this.handleCollisions();
-
-        // Cleanup deleted entities
         this.entities = this.entities.filter(entity => !entity.markForDeletion);
     }
 
-    // Helper method to keep code DRY
-    spawnLoot(x, y) {
-        const availableStats = ['DAMAGE', 'FIRE_RATE'];
-        const selectedStat = availableStats[Math.floor(Math.random() * availableStats.length)];
-        const statValue = selectedStat === 'DAMAGE' ? 1 : 50;
-
-        this.addEntity(new Collectible(x, y, this.assets.getImage('props'), selectedStat, statValue));
+    draw(ctx) {
+        const sortedEntities = [...this.entities].sort((a, b) => a.zIndex - b.zIndex);
+        sortedEntities.forEach(entity => entity.draw(ctx));
     }
 
-    // Custom AABB check to extend the hitbox in a specific direction (upwards for forgiving pickups)
-    checkExtendedCollision(player, entity, extendTop) {
-        const pLeft = player.x - player.width / 2;
-        const pRight = player.x + player.width / 2;
-        const pTop = player.y - player.height / 2;
-        const pBottom = player.y + player.height / 2;
+    // ============================================================================
+    // COLLISION DETECTION (Decoupled via EventBus)
+    // ============================================================================
 
-        const eLeft = entity.x - entity.width / 2;
-        const eRight = entity.x + entity.width / 2;
-        // Extend the top boundary (smaller Y value in Canvas)
-        const eTop = (entity.y - entity.height / 2) - extendTop;
-        const eBottom = entity.y + entity.height / 2;
-
-        return pLeft < eRight && pRight > eLeft && pTop < eBottom && pBottom > eTop;
-    }
-
-handleCollisions() {
+    handleCollisions() {
         const projectiles = this.entities.filter(e => e instanceof Projectile);
         const enemies = this.entities.filter(e => e instanceof Enemy);
         const collectibles = this.entities.filter(e => e instanceof Collectible);
@@ -59,7 +45,7 @@ handleCollisions() {
 
         if (!player) return;
 
-        // 1. Projectiles vs Enemies
+        // A. Projectiles vs Enemies
         projectiles.forEach(projectile => {
             if (projectile.markForDeletion) return;
 
@@ -69,67 +55,61 @@ handleCollisions() {
                 if (checkAABB(projectile, enemy)) {
                     projectile.markForDeletion = true;
                     enemy.hp -= projectile.damage;
-
-                    // Trigger visual hit feedback
                     enemy.onHit();
 
                     if (enemy.hp <= 0) {
                         enemy.markForDeletion = true;
                         this.addEntity(new ExplosionEntity(enemy.x, enemy.y, this.assets.getImage('props')));
-                        this.spawnLoot(enemy.x, enemy.y);
+                        
+                        // [EVENT] Notify the game that an enemy died
+                        gameEvents.emit(EVENTS.ENEMY_DESTROYED, { x: enemy.x, y: enemy.y, entityManager: this });
                     }
                 }
             });
         });
 
-        // 2. Enemy vs Player
+        // B. Enemies vs Player
         enemies.forEach(enemy => {
             if (enemy.markForDeletion) return;
 
             if (checkAABB(player, enemy)) {
                 enemy.markForDeletion = true;
                 this.addEntity(new ExplosionEntity(enemy.x, enemy.y, this.assets.getImage('props')));
-
-                // Spawn drop even on physical collision
-                this.spawnLoot(enemy.x, enemy.y);
+                
+                gameEvents.emit(EVENTS.ENEMY_DESTROYED, { x: enemy.x, y: enemy.y, entityManager: this });
 
                 player.stats.hp -= enemy.hp;
-
+                
+                // You could emit a PLAYER_HIT event here for screen shake or specific sounds
+                
                 if (player.stats.hp <= 0) {
-                    console.log("GAME OVER - Player HP reached 0");
-                    // Spawn explosion at player coordinates
                     this.addEntity(new ExplosionEntity(player.x, player.y, this.assets.getImage('props')));
                     player.markForDeletion = true;
+                    
+                    // [EVENT] Notify the GameManager that the player is dead
+                    gameEvents.emit(EVENTS.PLAYER_DEAD);
                 }
             }
         });
 
-        // 3. Player vs Collectibles
+        // C. Player vs Collectibles
         collectibles.forEach(collectible => {
-            if (collectible.markForDeletion) return;
+            if (collectible.markForDeletion || collectible.pickupDelay > 0) return;
 
-            // Ignore collision if the item is in its immunity frame
-            if (collectible.pickupDelay > 0) return;
-
-            // Use extended collision: adds 60px of invisible hitbox upwards
-            if (this.checkExtendedCollision(player, collectible, 60)) {
+            if (checkExtendedAABB(player, collectible, 60)) {
                 collectible.markForDeletion = true;
                 collectible.effectDef.apply(player, collectible.value);
+                // [EVENT] Optional: gameEvents.emit(EVENTS.PLAY_SFX, { id: 'pickup' });
             }
         });
 
-        // 4. Player vs Gates
+        // D. Player vs Gates
         gates.forEach(gate => {
             if (gate.markForDeletion) return;
 
             if (checkAABB(player, gate)) {
-                // Destroy all gates from this row
                 gates.forEach(g => g.markForDeletion = true);
             }
         });
-    }
-    draw(ctx) {
-        const sortedEntities = [...this.entities].sort((a, b) => a.zIndex - b.zIndex);
-        sortedEntities.forEach(entity => entity.draw(ctx));
     }
 }

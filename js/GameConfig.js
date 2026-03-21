@@ -47,7 +47,7 @@ export const GameConfig = {
     PROJECTILE_SIZE: 64,
 
     // Base stats
-    PLAYER_BASE_HP: 300,
+    PLAYER_BASE_HP: 1,
     PLAYER_BASE_DMG: 10,
     ENEMY_BASE_HP: 20,
 
