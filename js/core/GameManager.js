@@ -1,33 +1,35 @@
 // js/GameManager.js
-import { GameConfig } from './GameConfig.js';
-import { InputManager } from './InputManager.js';
+import { GameConfig } from '../GameConfig.js';
+import { InputManager } from '../managers/InputManager.js';
 import { gameEvents, EVENTS } from './EventBus.js';
-import { StartState } from './states/StartState.js';
-import { PlayState } from './states/PlayState.js';
-import { GameOverState } from './states/GameOverState.js';
+import { StartState } from '../states/StartState.js';
+import { PlayState } from '../states/PlayState.js';
+import { GameOverState } from '../states/GameOverState.js';
+import { Background } from '../utils/Background.js';
 
 export class GameManager {
 
     // ============================================================================
     // 1. CONSTRUCTOR & DEPENDENCY INJECTION
     // ============================================================================
-    
+
     constructor(canvasId, assets, audioManager) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-        
+
         this.assets = assets;
-        this.audioManager = audioManager; 
+        this.audioManager = audioManager;
 
         this.canvas.width = GameConfig.GAME_WIDTH;
         this.canvas.height = GameConfig.GAME_HEIGHT;
-        this.ctx.imageSmoothingEnabled = false; 
+        this.ctx.imageSmoothingEnabled = false;
 
         this.lastTime = 0;
-        this.timeScale = 1.0; 
+        this.timeScale = 1.0;
 
         this.inputManager = new InputManager(this.canvas);
-        
+        this.background = new Background(this.assets, this.canvas.width, this.canvas.height);
+
         // Will be instantiated dynamically by PlayState
         this.entityManager = null;
 
@@ -42,7 +44,7 @@ export class GameManager {
         // ==========================================
         // EVENT BUS SUBSCRIPTIONS
         // ==========================================
-        
+
         // Global listener for player death
         gameEvents.on(EVENTS.PLAYER_DEAD, () => {
             // Prevent re-triggering if already in GAMEOVER state
@@ -66,7 +68,7 @@ export class GameManager {
         }
 
         this.currentState = this.states[newStateKey];
-        
+
         if (this.currentState) {
             this.currentState.enter();
         } else {
@@ -84,7 +86,7 @@ export class GameManager {
     }
 
     // ============================================================================
-    // 3. CORE GAME LOOP (TICK)
+    // CORE GAME LOOP (TICK)
     // ============================================================================
 
     loop(timestamp) {
@@ -94,11 +96,14 @@ export class GameManager {
 
         const pointer = this.inputManager.getPointer();
 
-        // Base clear screen (states draw on top of this)
-        this.ctx.fillStyle = '#111';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // 1. Update and draw persistent background first
+        // This replaces the old ctx.fillRect base clear screen
+        if (this.background) {
+            this.background.update(dt);
+            this.background.draw(this.ctx);
+        }
 
-        // Delegate entire update and draw logic to the active state
+        // 2. Delegate entire update and draw logic to the active state
         if (this.currentState) {
             this.currentState.update(dt, pointer);
             this.currentState.draw(this.ctx);

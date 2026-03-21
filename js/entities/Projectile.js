@@ -1,5 +1,5 @@
 // js/Projectile.js
-import { PropsAtlas } from './Atlas.js';
+import { PropsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity } from './Entity.js';
 
 export class Projectile extends SpriteEntity {

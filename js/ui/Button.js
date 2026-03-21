@@ -1,6 +1,6 @@
 // js/Button.js
 import { UIConfig } from './UIConfig.js';
-import { GameConfig } from './GameConfig.js';
+import { GameConfig } from '../GameConfig.js';
 
 export class Button {
     // 1. Signature updated to use an optional config object

@@ -1,7 +1,7 @@
 // js/Collectible.js
-import { GameConfig } from './GameConfig.js';
-import { PropsAtlas } from './Atlas.js';
-import { BonusEffects } from './Effects.js';
+import { GameConfig } from '../GameConfig.js';
+import { PropsAtlas } from '../utils/Atlas.js';
+import { BonusEffects } from '../utils/Effects.js';
 import { SpriteEntity } from './Entity.js';
 
 export class Collectible extends SpriteEntity {

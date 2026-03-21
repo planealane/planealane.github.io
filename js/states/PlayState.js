@@ -1,9 +1,9 @@
 // js/states/PlayState.js
 import { State } from './State.js';
 import { GameConfig } from '../GameConfig.js';
-import { EntityManager } from '../EntityManager.js';
-import { Player } from '../Player.js';
-import { UIConfig } from '../UIConfig.js';
+import { EntityManager } from '../managers/EntityManager.js';
+import { Player } from '../entities/Player.js';
+import { UIConfig } from '../ui/UIConfig.js';
 
 export class PlayState extends State {
     
@@ -12,14 +12,20 @@ export class PlayState extends State {
     // ============================================================================
 
     enter() {
-        // Re-initialize the game world and attach it to GameManager for global access
+        // 1. Clean up the previous game world to prevent EventBus memory leaks
+        // This is done here instead of exit() so GameOverState can still render the dying world
+        if (this.gameManager.entityManager) {
+            this.gameManager.entityManager.destroy();
+        }
+
+        // 2. Initialize the new game world
         this.gameManager.entityManager = new EntityManager(this.gameManager.assets);
         this.gameManager.entityManager.addEntity(new Player(this.gameManager.assets.getImage('ships')));
         
-        // Reset global time scale
+        // 3. Reset global time scale
         this.gameManager.timeScale = 1.0;
         
-        // Setup opening transition animation
+        // 4. Setup opening transition animation
         this.isOpening = true;
         this.openingStartTime = performance.now();
         this.maxFillRadius = Math.sqrt(this.gameManager.canvas.width ** 2 + this.gameManager.canvas.height ** 2);
@@ -30,7 +36,7 @@ export class PlayState extends State {
     // ============================================================================
 
     update(dt, pointer) {
-        // Debug: Cycle player ship variant with 'C' key
+        // Debug: Cycle player plane variant with 'C' key
         if (this.gameManager.inputManager.isKeyDown('c')) {
             const player = this.gameManager.entityManager.entities.find(ent => ent instanceof Player);
             if (player) {

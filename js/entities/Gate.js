@@ -1,5 +1,5 @@
 // js/Gate.js
-import { GameConfig } from './GameConfig.js';
+import { GameConfig } from '../GameConfig.js';
 import { Entity } from './Entity.js';
 
 export class Gate extends Entity {

@@ -1,7 +1,7 @@
 // js/main.js
-import { AssetManager } from './AssetManager.js';
-import { AudioManager } from './AudioManager.js';
-import { GameManager } from './GameManager.js';
+import { AssetManager } from './managers/AssetManager.js';
+import { AudioManager } from './managers/AudioManager.js';
+import { GameManager } from './core/GameManager.js';
 
 const init = async () => {
     const assets = new AssetManager();
@@ -13,7 +13,7 @@ const init = async () => {
         assets.loadImage('props', 'assets/props.png', true),
         assets.loadImage('plain-sky', 'assets/plain-sky.jpg'),
         assets.loadImage('title', 'assets/title.png'),
-        
+        assets.loadImage('clouds', 'assets/clouds.png'),        
         // Add your audio file here (adjust extension if needed)
         audio.loadSound('title-theme', 'assets/audio/title-theme_1.ogg'),
         

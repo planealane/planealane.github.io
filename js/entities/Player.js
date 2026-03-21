@@ -1,8 +1,8 @@
 // js/Player.js
-import { GameConfig } from './GameConfig.js';
-import { ShipsAtlas } from './Atlas.js';
+import { GameConfig } from '../GameConfig.js';
+import { ShipsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity, drawFloatingText } from './Entity.js';
-import { gameEvents, EVENTS } from './EventBus.js';
+import { gameEvents, EVENTS } from '../core/EventBus.js';
 import { Projectile } from './Projectile.js';
 
 export class Player extends SpriteEntity {

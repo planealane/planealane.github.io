@@ -30,10 +30,11 @@ export const UIConfig = {
         EXHAUST_BASE_SIZE: 15,
         EXHAUST_MAX_DROP: 60,
 
-        // Added Game Over sequence timings
-        GAMEOVER_FADE_MS: 1000,
-        GAMEOVER_BOUNCE_MS: 1500,
-        GAMEOVER_BTN_SLIDE_MS: 800
+        GAMEOVER_FADE_MS: 1500,
+        GAMEOVER_BOUNCE_MS: 1750,
+        GAMEOVER_BTN_SLIDE_MS: 1500,
+
+        START_TRANSITION_MS: 1500 
     },
 
     SCREENS: {

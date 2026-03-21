@@ -1,7 +1,7 @@
 // js/Explosion.js
-import { SpriteEntity } from './Entities.js';
-import { PropsAtlas } from './Atlas.js';
-import { GameConfig } from './GameConfig.js';
+import { SpriteEntity } from './Entity.js';
+import { PropsAtlas } from '../utils/Atlas.js';
+import { GameConfig } from '../GameConfig.js';
 
 export class ExplosionEntity extends SpriteEntity {
     constructor(x, y, image) {

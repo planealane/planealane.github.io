@@ -1,13 +1,13 @@
 // js/EntityManager.js
-import { Player } from './Player.js';
-import { Enemy } from './Enemy.js';
-import { Projectile } from './Projectile.js';
-import { Gate } from './Gate.js';
-import { Collectible } from './Collectible.js';
-import { ExplosionEntity } from './Explosion.js';
-import { checkAABB, checkExtendedAABB } from './Physics.js';
+import { Player } from '../entities/Player.js';
+import { Enemy } from '../entities/Enemy.js';
+import { Projectile } from '../entities/Projectile.js';
+import { Gate } from '../entities/Gate.js';
+import { Collectible } from '../entities/Collectible.js';
+import { ExplosionEntity } from '../entities/Explosion.js';
+import { checkAABB, checkExtendedAABB } from '../core/Physics.js';
 import { Spawner } from './Spawner.js';
-import { gameEvents, EVENTS } from './EventBus.js'; // Import EventBus
+import { gameEvents, EVENTS } from '../core/EventBus.js'; // Import EventBus
 
 export class EntityManager {
     constructor(assets) {
@@ -111,5 +111,13 @@ export class EntityManager {
                 gates.forEach(g => g.markForDeletion = true);
             }
         });
+    }
+
+    /**
+     * Cleans up child managers and prevents lingering event subscriptions.
+     */
+    destroy() {
+        this.spawner.destroy();
+        this.entities = [];
     }
 }

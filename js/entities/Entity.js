@@ -1,5 +1,5 @@
 // js/Entity.js
-import { GameConfig } from './GameConfig.js';
+import { GameConfig } from '../GameConfig.js';
 
 // ============================================================================
 // UTILITIES

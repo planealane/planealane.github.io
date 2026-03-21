@@ -1,5 +1,5 @@
 // js/AudioManager.js
-import { gameEvents, EVENTS } from './EventBus.js';
+import { gameEvents, EVENTS } from '../core/EventBus.js';
 
 export class AudioManager {
 

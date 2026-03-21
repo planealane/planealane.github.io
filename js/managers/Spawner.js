@@ -1,9 +1,9 @@
-// js/Spawner.js
-import { Enemy } from './Enemy.js';
-import { Gate } from './Gate.js';
-import { Collectible } from './Collectible.js';
-import { GameConfig } from './GameConfig.js';
-import { gameEvents, EVENTS } from './EventBus.js'; // Import EventBus
+// js/managers/Spawner.js
+import { Enemy } from '../entities/Enemy.js';
+import { Gate } from '../entities/Gate.js';
+import { Collectible } from '../entities/Collectible.js';
+import { GameConfig } from '../GameConfig.js';
+import { gameEvents, EVENTS } from '../core/EventBus.js';
 
 export class Spawner {
     constructor() {
@@ -12,10 +12,21 @@ export class Spawner {
         this.spawnCount = 0;       
         this.gateFrequency = 5;    
 
-        // Listen for enemy deaths to spawn loot dynamically
-        gameEvents.on(EVENTS.ENEMY_DESTROYED, (payload) => {
-            this.spawnLoot(payload.entityManager, payload.x, payload.y);
-        });
+        // Bind the method to maintain a stable reference for the EventBus
+        this.onEnemyDestroyed = this.onEnemyDestroyed.bind(this);
+        gameEvents.on(EVENTS.ENEMY_DESTROYED, this.onEnemyDestroyed);
+    }
+
+    // Callback method
+    onEnemyDestroyed(payload) {
+        this.spawnLoot(payload.entityManager, payload.x, payload.y);
+    }
+
+    /**
+     * Cleans up event listeners to prevent memory leaks and duplicate triggers.
+     */
+    destroy() {
+        gameEvents.off(EVENTS.ENEMY_DESTROYED, this.onEnemyDestroyed);
     }
 
     update(dt, entityManager) {

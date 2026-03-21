@@ -1,8 +1,8 @@
 // js/Enemy.js
-import { GameConfig } from './GameConfig.js';
-import { ShipsAtlas } from './Atlas.js';
+import { GameConfig } from '../GameConfig.js';
+import { ShipsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity, drawFloatingText } from './Entity.js';
-import { gameEvents, EVENTS } from './EventBus.js';
+import { gameEvents, EVENTS } from '../core/EventBus.js';
 
 export class Enemy extends SpriteEntity {
     constructor(x, y, image, maxHp, variantIndex = 0) {

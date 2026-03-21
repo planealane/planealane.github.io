@@ -1,5 +1,5 @@
 // js/InputManager.js
-import { GameConfig } from './GameConfig.js';
+import { GameConfig } from '../GameConfig.js';
 
 export class InputManager {
     constructor(canvas) {
