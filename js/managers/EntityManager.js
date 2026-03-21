@@ -6,14 +6,14 @@ import { Gate } from '../entities/Gate.js';
 import { Collectible } from '../entities/Collectible.js';
 import { ExplosionEntity } from '../entities/Explosion.js';
 import { checkAABB, checkExtendedAABB } from '../core/Physics.js';
-import { Spawner } from './Spawner.js';
-import { gameEvents, EVENTS } from '../core/EventBus.js'; // Import EventBus
+import { gameEvents, EVENTS } from '../core/EventBus.js';
+import { Boss } from '../entities/Boss.js';
 
 export class EntityManager {
     constructor(assets) {
         this.assets = assets;
         this.entities = [];
-        this.spawner = new Spawner();
+        // LIGNE SUPPRIMÉE: this.spawner = new Spawner();
     }
 
     addEntity(entity) {
@@ -22,7 +22,7 @@ export class EntityManager {
 
     update(dt, playerX) {
         this.entities.forEach(entity => entity.update(dt, playerX, this));
-        this.spawner.update(dt, this);
+        // LIGNE SUPPRIMÉE: this.spawner.update(dt, this);
         this.handleCollisions();
         this.entities = this.entities.filter(entity => !entity.markForDeletion);
     }
@@ -36,9 +36,14 @@ export class EntityManager {
     // COLLISION DETECTION (Decoupled via EventBus)
     // ============================================================================
 
+// ============================================================================
+    // COLLISION DETECTION (Decoupled via EventBus)
+    // ============================================================================
+
     handleCollisions() {
         const projectiles = this.entities.filter(e => e instanceof Projectile);
-        const enemies = this.entities.filter(e => e instanceof Enemy);
+        // Include both standard enemies and bosses in the collision pool
+        const enemies = this.entities.filter(e => e instanceof Enemy || e instanceof Boss);
         const collectibles = this.entities.filter(e => e instanceof Collectible);
         const gates = this.entities.filter(e => e instanceof Gate);
         const player = this.entities.find(e => e instanceof Player);
@@ -55,11 +60,15 @@ export class EntityManager {
                 if (checkAABB(projectile, enemy)) {
                     projectile.markForDeletion = true;
                     enemy.hp -= projectile.damage;
-                    enemy.onHit();
+                    
+                    if (enemy.onHit) enemy.onHit(); // Specific juice (like Boss scale)
 
                     if (enemy.hp <= 0) {
                         enemy.markForDeletion = true;
                         this.addEntity(new ExplosionEntity(enemy.x, enemy.y, this.assets.getImage('props')));
+
+                        // [EVENT] Play explosion sound
+                        gameEvents.emit(EVENTS.PLAY_SFX, { id: 'explosion', volume: 0.6 });
                         
                         // [EVENT] Notify the game that an enemy died
                         gameEvents.emit(EVENTS.ENEMY_DESTROYED, { x: enemy.x, y: enemy.y, entityManager: this });
@@ -75,18 +84,20 @@ export class EntityManager {
             if (checkAABB(player, enemy)) {
                 enemy.markForDeletion = true;
                 this.addEntity(new ExplosionEntity(enemy.x, enemy.y, this.assets.getImage('props')));
-                
+
+                // L'ennemi meurt, on notifie le jeu (pour le score/loot) mais ON NE JOUE PAS son son d'explosion
                 gameEvents.emit(EVENTS.ENEMY_DESTROYED, { x: enemy.x, y: enemy.y, entityManager: this });
 
                 player.stats.hp -= enemy.hp;
-                
-                // You could emit a PLAYER_HIT event here for screen shake or specific sounds
-                
+
+                // [PRIORITÉ AUDIO] On joue uniquement le son de dégât du joueur
+                gameEvents.emit(EVENTS.PLAY_SFX, { id: 'player_hit', volume: 0.8 });
+
                 if (player.stats.hp <= 0) {
                     this.addEntity(new ExplosionEntity(player.x, player.y, this.assets.getImage('props')));
                     player.markForDeletion = true;
-                    
-                    // [EVENT] Notify the GameManager that the player is dead
+
+                    // Notifier le GameManager de la mort
                     gameEvents.emit(EVENTS.PLAYER_DEAD);
                 }
             }
@@ -99,7 +110,9 @@ export class EntityManager {
             if (checkExtendedAABB(player, collectible, 60)) {
                 collectible.markForDeletion = true;
                 collectible.effectDef.apply(player, collectible.value);
-                // [EVENT] Optional: gameEvents.emit(EVENTS.PLAY_SFX, { id: 'pickup' });
+                
+                // [EVENT] Play bonus sound
+                gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.7 });
             }
         });
 
@@ -108,16 +121,25 @@ export class EntityManager {
             if (gate.markForDeletion) return;
 
             if (checkAABB(player, gate)) {
-                gates.forEach(g => g.markForDeletion = true);
+                // 1. Apply bonus
+                gate.applyBonus(player);
+
+                // [EVENT] Play bonus sound for gate
+                gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.8 });
+
+                // 2. Destroy sibling gates
+                gates.forEach(g => {
+                    if (Math.abs(g.y - gate.y) < 20) {
+                        g.markForDeletion = true;
+                    }
+                });
             }
         });
     }
-
     /**
      * Cleans up child managers and prevents lingering event subscriptions.
      */
     destroy() {
-        this.spawner.destroy();
         this.entities = [];
     }
 }

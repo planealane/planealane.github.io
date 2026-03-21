@@ -25,7 +25,6 @@ export class ExplosionEntity extends SpriteEntity {
             } else {
                 // Point to the next frame object in the Atlas
                 this.frame = this.frames[this.currentFrameIndex];
-                console.log("Frame actuelle :", this.frame);
             }
         }
     }
