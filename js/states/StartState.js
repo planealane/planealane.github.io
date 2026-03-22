@@ -24,6 +24,7 @@ export class StartState extends State {
         // Array to easily manage future multiple buttons
         this.buttons = [];
         this.initUI();
+        this.gameManager.audioManager.playMusic('title-theme', 0.5, 1000);
     }
 
     initUI() {

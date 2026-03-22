@@ -62,29 +62,33 @@ export class AudioManager {
     // 3. PLAYBACK CONTROL (MUSIC & SFX)
     // ============================================================================
 
+// ============================================================================
+    // 3. PLAYBACK CONTROL (MUSIC & SFX)
+    // ============================================================================
+
     /**
-     * Plays looping background music, handling browser autoplay restrictions.
+     * Plays looping background music with an optional crossfade.
+     * Handles browser autoplay restrictions gracefully.
      */
-    playMusic(key, volume = 0.5) {
+    playMusic(key, targetVolume = 0.5, fadeDuration = 1000) {
         if (this.isMuted || !this.sounds[key]) return;
 
-        // Stop current music if switching tracks
-        if (this.currentMusic && this.currentMusic !== this.sounds[key]) {
-            this.currentMusic.pause();
-            this.currentMusic.currentTime = 0;
-        }
+        const newMusic = this.sounds[key];
 
-        this.currentMusic = this.sounds[key];
-        this.currentMusic.loop = true;
-        this.currentMusic.volume = volume;
+        // Prevent restarting the track if it's already playing
+        if (this.currentMusic === newMusic) return;
 
-        // Handle browser autoplay restrictions safely
-        const playPromise = this.currentMusic.play();
+        const oldMusic = this.currentMusic;
+        this.currentMusic = newMusic;
+
+        // Initialize new music at volume 0 for fade-in
+        newMusic.loop = true;
+        newMusic.volume = 0;
+
+        const playPromise = newMusic.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
-                console.warn("[AudioManager] Autoplay blocked. Waiting for user interaction to start music.");
-
-                // Fallback: start music on the very first user click
+                console.warn("[AudioManager] Autoplay blocked. Waiting for interaction.");
                 const startOnInteract = () => {
                     this.currentMusic.play();
                     document.removeEventListener('click', startOnInteract);
@@ -92,6 +96,52 @@ export class AudioManager {
                 document.addEventListener('click', startOnInteract);
             });
         }
+
+        // Crossfade logic
+        this.crossfade(oldMusic, newMusic, targetVolume, fadeDuration);
+    }
+
+    /**
+     * Executes the volume transition smoothly.
+     */
+    crossfade(oldMusic, newMusic, targetVolume, duration) {
+        const steps = 20; // Number of volume updates
+        const stepTime = duration / steps;
+        const volumeStep = targetVolume / steps;
+
+        let currentStep = 0;
+
+        // Clear any existing fade interval to prevent erratic volume jumping
+        if (this.fadeInterval) clearInterval(this.fadeInterval);
+
+        this.fadeInterval = setInterval(() => {
+            currentStep++;
+
+            // Fade in new music
+            if (newMusic.volume + volumeStep <= targetVolume) {
+                newMusic.volume += volumeStep;
+            }
+
+            // Fade out old music
+            if (oldMusic) {
+                if (oldMusic.volume - volumeStep >= 0) {
+                    oldMusic.volume -= volumeStep;
+                } else {
+                    oldMusic.volume = 0;
+                }
+            }
+
+            // Cleanup when transition completes
+            if (currentStep >= steps) {
+                clearInterval(this.fadeInterval);
+                newMusic.volume = targetVolume;
+                
+                if (oldMusic) {
+                    oldMusic.pause();
+                    oldMusic.currentTime = 0;
+                }
+            }
+        }, stepTime);
     }
 
     /**
