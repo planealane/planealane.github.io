@@ -1,23 +1,27 @@
-// js/Button.js
+// js/ui/Button.js
 import { UIConfig } from './UIConfig.js';
 import { GameConfig } from '../GameConfig.js';
+import { gameEvents, EVENTS } from '../core/EventBus.js'; // NOUVEL IMPORT
 
 export class Button {
-    // 1. Signature updated to use an optional config object
+    // Signature updated to use an optional config object
     constructor(text, x, y, themeKey, onClickCallback, options = {}) {
         this.text = text;
         this.baseX = x;
         this.baseY = y;
-        this.anchorY = y; // Absolute origin for external animations (like breathing)
+        this.anchorY = y; 
         this.onClick = onClickCallback;
 
-        // 2. Default dimensions with optional overrides
+        // Default dimensions with optional overrides
         const defaults = UIConfig.BUTTON_DEFAULTS;
         this.width = options.width || defaults.width;
         this.height = options.height || defaults.height;
         this.fontSize = options.fontSize || GameConfig.FONT_SIZE_MD;
 
-        // 3. Theme selection
+        // [NOUVEAU] Configuration du son (par défaut: button_interact)
+        this.sfxId = options.sfxId || 'button_interact';
+
+        // Theme selection
         this.theme = UIConfig.BUTTON_THEMES[themeKey] || UIConfig.BUTTON_THEMES.primary;
 
         this.isHovered = false;
@@ -38,6 +42,9 @@ export class Button {
 
     handleClick(pointerX, pointerY) {
         if (this.isHovered) {
+            // [NOUVEAU] On joue le son de clic assigné avant d'exécuter l'action
+            gameEvents.emit(EVENTS.PLAY_SFX, { id: this.sfxId, volume: 0.8 });
+            
             this.onClick();
             return true;
         }

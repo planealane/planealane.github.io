@@ -42,12 +42,12 @@ export class StartState extends State {
             centerX - playWidth / 2, 
             playBtnY, 
             'start', 
-            // Launch the choreography instead of changing state immediately
             () => this.startTransition(),
             { 
                 width: playWidth, 
                 height: playHeight,
-                fontSize: GameConfig.FONT_SIZE_MD * 1.5 
+                fontSize: GameConfig.FONT_SIZE_MD * 1.5,
+                sfxId: 'game_start' // [NOUVEAU] On écrase le son par défaut
             }
         );
 

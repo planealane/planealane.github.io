@@ -11,14 +11,14 @@ import { LevelProgression } from '../config/LevelProgression.js';
 export class Spawner {
     constructor() {
         // Distance in pixels between each row. Adjust to fit your screen height perfectly.
-        this.rowSpacing = 300; 
-        
+        this.rowSpacing = 300;
+
         // A block consists of 5 rows (Row 0 to 4). To connect Block 1 to Block 2 smoothly, 
         // the trigger distance must be exactly 5 times the row spacing.
-        this.blockHeight = 5 * this.rowSpacing; 
+        this.blockHeight = 5 * this.rowSpacing;
 
         // Initialize at max value to force an immediate spawn on the very first frame
-        this.scrollAccumulator = this.blockHeight; 
+        this.scrollAccumulator = this.blockHeight;
 
         this.difficultyLevel = 1;
         this.pendingEncounters = [];
@@ -26,6 +26,7 @@ export class Spawner {
         // Progression tracking system
         this.blocksSpawned = 0;
         this.currentMilestoneIndex = 0;
+        this.totalDistanceScrolled = 0;
 
         this.onEnemyDestroyed = this.onEnemyDestroyed.bind(this);
         gameEvents.on(EVENTS.ENEMY_DESTROYED, this.onEnemyDestroyed);
@@ -43,20 +44,21 @@ export class Spawner {
         // Calculate exact distance scrolled this frame rather than relying on an abstract timer
         const distanceScrolled = GameConfig.SCROLL_SPEED * dt;
         this.scrollAccumulator += distanceScrolled;
+        this.totalDistanceScrolled += distanceScrolled;
 
         if (this.scrollAccumulator >= this.blockHeight) {
             // Keep the remainder (overshoot) to guarantee pixel-perfect spacing across frames
             const overshoot = this.scrollAccumulator - this.blockHeight;
             this.scrollAccumulator = overshoot;
-            
+
             // Track progression and queue bosses BEFORE generating the current block
             this.blocksSpawned++;
             this.checkProgression();
-            
+
             this.spawnBlock(entityManager, overshoot);
-            
+
             // Soft difficulty scaling per block
-            this.difficultyLevel += 0.25; 
+            this.difficultyLevel += 0.25;
         }
     }
 
@@ -77,7 +79,7 @@ export class Spawner {
 
     spawnBlock(entityManager, overshoot = 0) {
         // Offset startY by the overshoot to maintain the exact continuous spacing
-        const startY = -150 - overshoot; 
+        const startY = -150 - overshoot;
 
         // Row 0: Always the Gate
         GameConfig.GATE_LANES.forEach(x => {
@@ -99,14 +101,14 @@ export class Spawner {
 
     spawnEnemiesInRows(entityManager, startY, rowSpacing, availableRows, minEnemies, maxEnemies) {
         const enemyCount = Math.floor(Math.random() * (maxEnemies - minEnemies + 1)) + minEnemies;
-        
+
         const selectedRows = availableRows.sort(() => 0.5 - Math.random()).slice(0, enemyCount);
 
         selectedRows.forEach(rowIndex => {
             const randomLaneIndex = Math.floor(Math.random() * GameConfig.ENEMY_LANES.length);
             const x = GameConfig.ENEMY_LANES[randomLaneIndex];
             const y = startY - (rowIndex * rowSpacing);
-            
+
             const scaledHp = GameConfig.calculateEnemyHp(Math.floor(this.difficultyLevel));
             entityManager.addEntity(new Enemy(x, y, entityManager.assets.getImage('ships'), scaledHp));
         });
@@ -135,5 +137,29 @@ export class Spawner {
         const statValue = selectedStat === 'DAMAGE' ? 1 : 50;
 
         entityManager.addEntity(new Collectible(x, y, entityManager.assets.getImage('props'), selectedStat, statValue));
+    }
+
+    /**
+     * Retourne un ratio de progression global (0.0 à 1.0) pour TOUT le jeu,
+     * de la toute première frame jusqu'au boss final.
+     */
+    getProgressRatio() {
+        if (LevelProgression.length === 0) return 1;
+
+        // 1. Récupérer le tout dernier jalon du jeu (le Boss Final)
+        const finalMilestone = LevelProgression[LevelProgression.length - 1];
+        
+        // 2. Calculer la distance totale absolue du jeu complet en pixels
+        // (index du dernier bloc - 1) * taille d'un bloc
+        const totalGameDistance = (finalMilestone.blockIndex - 1) * this.blockHeight;
+
+        // Sécurité anti-division par zéro
+        if (totalGameDistance <= 0) return 1;
+
+        // 3. Le ratio est simplement la distance défilée divisée par la distance totale
+        const exactProgress = this.totalDistanceScrolled / totalGameDistance;
+
+        // 4. Contraindre entre 0.0 et 1.0 pour l'UI
+        return Math.min(1, Math.max(0, exactProgress));
     }
 }

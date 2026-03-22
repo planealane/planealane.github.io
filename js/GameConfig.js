@@ -45,6 +45,7 @@ export const GameConfig = {
     // Size of the player/ennemies/props
     SHIP_SIZE: 200,
     PROJECTILE_SIZE: 64,
+    BOSS_BASE_WIDTH: 300,
 
     // Base stats
     PLAYER_BASE_HP: 1,

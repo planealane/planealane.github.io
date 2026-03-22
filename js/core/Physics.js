@@ -20,7 +20,7 @@ export function checkAABB(entityA, entityB, hitboxTolerance = 0.8) {
 
     const distanceX = Math.abs(entityA.x - entityB.x);
     const distanceY = Math.abs(entityA.y - entityB.y);
-
+    
     return distanceX < (halfWidthA + halfWidthB) && 
            distanceY < (halfHeightA + halfHeightB);
 }

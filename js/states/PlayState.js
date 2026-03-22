@@ -4,6 +4,8 @@ import { EntityManager } from '../managers/EntityManager.js';
 import { Player } from '../entities/Player.js';
 import { Spawner } from '../managers/Spawner.js';
 import { GameOverOverlay } from '../ui/GameOverOverlay.js';
+import { VFXManager } from '../managers/VFXManager.js';
+import { ProgressUI } from '../ui/ProgressUI.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 
 export class PlayState extends State {
@@ -20,6 +22,9 @@ export class PlayState extends State {
         if (this.spawner) {
             this.spawner.destroy();
         }
+        if (this.vfxManager) {
+            this.vfxManager.destroy();
+        }
 
         // 2. State configuration
         this.phase = 'PLAYING'; // 'PLAYING' | 'GAMEOVER_SEQUENCE'
@@ -29,6 +34,8 @@ export class PlayState extends State {
         this.gameManager.entityManager = new EntityManager(this.gameManager.assets);
         this.gameManager.entityManager.addEntity(new Player(this.gameManager.assets.getImage('ships')));
         this.spawner = new Spawner();
+        this.vfxManager = new VFXManager(this.gameManager.assets);
+        this.progressUI = new ProgressUI(this.gameManager.canvas.height, this.gameManager.assets);
 
         // 4. Reset global time scale
         this.gameManager.timeScale = 1.0;
@@ -44,23 +51,18 @@ export class PlayState extends State {
     exit() {
         // Unbind to prevent zombie listeners if state is destroyed
         gameEvents.off(EVENTS.PLAYER_DEAD, this.onPlayerDead);
+        if (this.vfxManager) {
+            this.vfxManager.destroy();
+        }
     }
 
     onPlayerDead() {
         if (this.phase === 'GAMEOVER_SEQUENCE') return;
-        
+
         this.phase = 'GAMEOVER_SEQUENCE';
         this.gameManager.timeScale = 0.25; // Initial slow-mo hit
         this.gameOverOverlay.start();
     }
-
-    // ============================================================================
-    // LOGIC & RENDERING
-    // ============================================================================
-
-    // ============================================================================
-    // LOGIC & RENDERING
-    // ============================================================================
 
     // ============================================================================
     // LOGIC & RENDERING
@@ -84,9 +86,9 @@ export class PlayState extends State {
                 this.gameManager.timeScale = Math.max(0, this.gameManager.timeScale - dt * 0.001);
             } else {
                 // Lock at 25% speed for exactly 2 seconds. Explosions will finish normally.
-                this.gameManager.timeScale = 0.25; 
+                this.gameManager.timeScale = 0.25;
             }
-            
+
             this.gameOverOverlay.update(dt, pointer);
         }
 
@@ -96,21 +98,41 @@ export class PlayState extends State {
 
             if (this.gameManager.timeScale > 0) {
                 this.gameManager.entityManager.update(scaledDt, pointer.x);
+                this.vfxManager.update(scaledDt); // Updates particles with slow-motion
             }
 
             if (this.spawner && this.phase === 'PLAYING') {
                 this.spawner.update(scaledDt, this.gameManager.entityManager);
+
+                // On récupère le vrai ratio calculé ci-dessus
+                const ratio = this.spawner.getProgressRatio();
+                this.progressUI.updateRatio(ratio);
+            }
+
+            // Progress UI smooth animation updates independently of the game state
+            if (this.progressUI) {
+                this.progressUI.update(scaledDt);
             }
         }
     }
-    
+
     draw(ctx) {
         // 1. Draw the game world
         if (this.gameManager.entityManager) {
             this.gameManager.entityManager.draw(ctx);
         }
 
-        // 2. Draw Game Over UI on top
+        // 2. Draw VFX on top of entities
+        if (this.vfxManager) {
+            this.vfxManager.draw(ctx);
+        }
+
+        // 3. Draw Persistent Game UI
+        if (this.phase === 'PLAYING' && this.progressUI) {
+            this.progressUI.draw(ctx);
+        }
+
+        // 4. Draw Game Over UI on top of everything
         if (this.phase === 'GAMEOVER_SEQUENCE') {
             this.gameOverOverlay.draw(ctx);
         }

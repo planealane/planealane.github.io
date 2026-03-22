@@ -34,3 +34,33 @@ export const ShipsAtlas = {
         return { sx: col * sw, sy: row * sh, sWidth: sw, sHeight: sh };
     }
 };
+
+// Based on a 32x32 grid inside a 96x96 image
+export const ProgressAtlas = {
+    // Centralized size property to avoid magic numbers
+    SIZE: 32,
+
+    // Row 1
+    pipe: {
+        empty: { sx: 0,  sy: 0, sWidth: 32, sHeight: 32 },
+        full:  { sx: 32, sy: 0, sWidth: 32, sHeight: 32 }
+    },
+    
+    // Row 1 & 2
+    boss: {
+        empty: { sx: 64, sy: 0,  sWidth: 32, sHeight: 32 },
+        full:  { sx: 0,  sy: 32, sWidth: 32, sHeight: 32 }
+    },
+
+    // Row 2 & 3
+    header: {
+        full:  { sx: 64, sy: 32, sWidth: 32, sHeight: 32 },
+        empty: { sx: 0,  sy: 64, sWidth: 32, sHeight: 32 }
+    },
+
+    // Row 3
+    footer: {
+        full:  { sx: 32, sy: 64, sWidth: 32, sHeight: 32 },
+        empty: { sx: 64, sy: 64, sWidth: 32, sHeight: 32 }
+    }
+};

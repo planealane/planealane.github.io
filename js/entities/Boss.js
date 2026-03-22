@@ -6,26 +6,41 @@ import { gameEvents, EVENTS } from '../core/EventBus.js';
 export class Boss extends SpriteEntity {
     constructor(x, y, image, maxHp, bossDef) {
         const frame = { sx: 0, sy: 0, sWidth: image.width, sHeight: image.height };
-        super(x, y, 640, 240, image, frame, Math.PI, 10);
+        
+        // 1. Calcul des dimensions de base
+        const baseWidth = bossDef.width || GameConfig.BOSS_BASE_WIDTH; 
+        const baseHeight = baseWidth * (image.height / image.width);
+
+        // 2. Application du scale sur les dimensions LOGIQUES pour que Physics.js les lise
+        const scale = bossDef.scale || 1.0;
+        const physicalWidth = baseWidth * scale;
+        const physicalHeight = baseHeight * scale;
+
+        super(x, y, physicalWidth, physicalHeight, image, frame, Math.PI, 0);
 
         this.speed = GameConfig.SCROLL_SPEED;
         this.hp = maxHp;
         this.maxHp = maxHp;
         this.isBoss = true;
         
-        // Store base scale to compute the hit animation properly
-        this.baseScale = bossDef.scale || 1.0;
+        // 3. CRUCIAL : Identifier l'entité pour le gestionnaire de collisions
+        // Ajoute les tags que ton EntityManager recherche habituellement
+        this.isEnemy = true; 
+        this.type = 'enemy'; // (ou 'ENEMY' selon tes conventions)
+        
+        // Le scale d'animation "Juice" part de 1.0 car la taille physique est déjà agrandie
+        this.baseScale = 1.0;
         this.currentScale = this.baseScale;
     }
 
     onHit() {
-        // Shrink slightly relative to the base scale
+        // Effet de jus : rétrécissement léger à l'impact
         this.currentScale = this.baseScale * 0.95; 
         gameEvents.emit(EVENTS.PLAY_SFX, { id: 'hit', volume: 0.8 });
     }
 
     update(dt) {
-        // Smoothly recover to base scale
+        // Retour progressif à la taille normale
         if (this.currentScale < this.baseScale) {
             this.currentScale += (this.baseScale - this.currentScale) * 0.1;
         }
@@ -42,7 +57,7 @@ export class Boss extends SpriteEntity {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         
-        // Apply dynamic scale
+        // On applique le scale d'animation (proche de 1.0)
         ctx.scale(this.currentScale, this.currentScale);
 
         ctx.drawImage(
@@ -54,8 +69,7 @@ export class Boss extends SpriteEntity {
         ctx.restore();
 
         // Render HP
-        // Text position scales dynamically with the boss size
-        const textY = this.y - ((this.height * this.baseScale) / 2) - 40;
+        const textY = this.y - (this.height / 2) - 40;
         drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#8e44ad');
     }
 }
