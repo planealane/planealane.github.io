@@ -5,7 +5,6 @@ import { Boss } from '../entities/Boss.js';
 import { Collectible } from '../entities/Collectible.js';
 import { GameConfig } from '../GameConfig.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
-import { getBossDef } from '../config/BossConfig.js';
 import { LevelProgression } from '../config/LevelProgression.js';
 
 export class Spawner {
@@ -82,8 +81,9 @@ export class Spawner {
         const startY = -150 - overshoot;
 
         // Row 0: Always the Gate
+        const gateImage = entityManager.assets.getImage('gate');
         GameConfig.GATE_LANES.forEach(x => {
-            entityManager.addEntity(new Gate(x, startY));
+            entityManager.addEntity(new Gate(x, startY, gateImage));
         });
 
         const hasBoss = this.pendingEncounters.length > 0;
@@ -116,8 +116,12 @@ export class Spawner {
 
     spawnBoss(entityManager, encounterData, yPosition) {
         const x = GameConfig.GAME_WIDTH / 2;
-        const bossDef = getBossDef(encounterData);
-        const scaledHp = bossDef.baseHp * Math.floor(this.difficultyLevel);
+        
+        // Appel direct via GameConfig
+        const bossDef = GameConfig.getBossDef(encounterData);
+        
+        // Calcul des HP via la méthode centralisée qu'on a mise en place précédemment
+        const scaledHp = GameConfig.calculateBossHp(bossDef.baseHp, Math.floor(this.difficultyLevel));
         const bossImage = entityManager.assets.getImage(bossDef.assetKey);
 
         const boss = new Boss(x, yPosition, bossImage, scaledHp, bossDef);
@@ -140,26 +144,26 @@ export class Spawner {
     }
 
     /**
-     * Retourne un ratio de progression global (0.0 à 1.0) pour TOUT le jeu,
-     * de la toute première frame jusqu'au boss final.
+     * Returns a global progression ratio (0.0 to 1.0) for the ENTIRE game,
+     * from the very first frame up to the final boss.
      */
     getProgressRatio() {
         if (LevelProgression.length === 0) return 1;
 
-        // 1. Récupérer le tout dernier jalon du jeu (le Boss Final)
+        // 1. Get the very last milestone of the game (Final Boss)
         const finalMilestone = LevelProgression[LevelProgression.length - 1];
         
-        // 2. Calculer la distance totale absolue du jeu complet en pixels
-        // (index du dernier bloc - 1) * taille d'un bloc
+        // 2. Calculate the absolute total distance of the full game in pixels
+        // (index of the last block - 1) * block size
         const totalGameDistance = (finalMilestone.blockIndex - 1) * this.blockHeight;
 
-        // Sécurité anti-division par zéro
+        // Prevent division by zero
         if (totalGameDistance <= 0) return 1;
 
-        // 3. Le ratio est simplement la distance défilée divisée par la distance totale
+        // 3. The ratio is simply the scrolled distance divided by the total distance
         const exactProgress = this.totalDistanceScrolled / totalGameDistance;
 
-        // 4. Contraindre entre 0.0 et 1.0 pour l'UI
+        // 4. Clamp between 0.0 and 1.0 for the UI
         return Math.min(1, Math.max(0, exactProgress));
     }
 }

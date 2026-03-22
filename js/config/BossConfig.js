@@ -12,7 +12,7 @@ export const BossConfig = {
     },
     'boss': {
         assetKey: 'boss',
-        baseHp: 1500,
+        baseHp: 50,
         scale: 3.0
     },
     'final_boss': {

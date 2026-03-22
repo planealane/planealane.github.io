@@ -13,8 +13,8 @@ export const ImageManifest = [
     { key: 'miniboss', path: 'assets/boss_01.png', isAtlas: false },
     { key: 'boss', path: 'assets/boss_01.png', isAtlas: false },
     { key: 'finalboss', path: 'assets/boss_01.png', isAtlas: false },
-    { key: 'gate', path: 'assets/gate_01.png', isAtlas: false }
-
+    { key: 'gate', path: 'assets/gate_01.png', isAtlas: false },
+    { key: 'megabonus', path: 'assets/megabonus.png', isAtlas: false }
 
 ];
 
