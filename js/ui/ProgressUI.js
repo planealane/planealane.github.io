@@ -10,28 +10,32 @@ export class ProgressUI {
         this.targetRatio = 0;
         this.currentRatio = 0;
 
-        // --- SCALING (Le secret est ici) ---
-        // On passe de 1.5 à 3.0 pour doubler la largeur et la hauteur des tuiles
+        // --- SCALING ---
+        // Scale increased to 3.0 to double the width and height of the tiles.
         this.scale = 3.0; 
         this.tileSize = ProgressAtlas.SIZE * this.scale;
         
-        // Cible : ~75% de la hauteur de l'écran
+        // Target height: ~75% of the screen height
         const targetHeight = canvasHeight * 0.75;
         
-        // Le code calcule dynamiquement combien de "LEGO" il faut empiler.
-        // Avec des tuiles 2x plus grosses, il mettra 2x moins de segments intermédiaires !
+        // Dynamically calculate how many "LEGO blocks" to stack.
+        // With tiles 2x larger, it requires half the intermediate segments.
         this.totalTiles = Math.max(3, Math.floor(targetHeight / this.tileSize));
         
         this.width = this.tileSize;
         this.height = this.totalTiles * this.tileSize;
         
-        // On la décale un peu plus (30 au lieu de 20) car elle est plus large
+        // Shifted slightly to the right (30 instead of 20) due to increased width
         this.x = 30; 
         this.y = (canvasHeight - this.height) / 2;
 
         this.layout = this.buildLayout();
     }
 
+    /**
+     * Constructs the visual layout array of the progress bar based on level milestones.
+     * Places header/footer tiles at the ends and boss tiles at the corresponding calculated ratios.
+     */
     buildLayout() {
         const layout = new Array(this.totalTiles).fill('pipe');
         
@@ -44,7 +48,8 @@ export class ProgressUI {
         const totalGameDistance = Math.max(1, (finalMilestone.blockIndex - 1) * 300);
 
         LevelProgression.forEach(milestone => {
-            if (milestone.type !== 'BOSS') return;
+            // [MODIFIED] Broadened the filter to catch any event of type 'boss_encounter'
+            if (milestone.type !== 'boss_encounter' || !milestone.bossData) return;
             
             const milestoneDistance = (milestone.blockIndex - 1) * 300;
             const ratio = milestoneDistance / totalGameDistance;
@@ -58,10 +63,19 @@ export class ProgressUI {
         return layout;
     }
 
+    /**
+     * Sets the target ratio for the progress bar to smoothly interpolate towards.
+     * @param {number} ratio - The new target fill percentage (0 to 1).
+     */
     updateRatio(ratio) {
         this.targetRatio = Math.max(0, Math.min(1, ratio));
     }
 
+    /**
+     * Handles smooth interpolation of the progress bar fill level.
+     * Called every frame by the game loop.
+     * @param {number} dt - Delta time in milliseconds.
+     */
     update(dt) {
         if (this.currentRatio < this.targetRatio) {
             this.currentRatio += 0.0005 * dt;
@@ -73,6 +87,10 @@ export class ProgressUI {
         }
     }
 
+    /**
+     * Renders the entire progress bar, filling tiles dynamically based on the current ratio.
+     * Handles partial tile filling for smooth visual progression.
+     */
     draw(ctx) {
         const sheet = this.assets.getImage('progress_spritesheet');
         if (!sheet) return;
@@ -123,6 +141,9 @@ export class ProgressUI {
         ctx.restore();
     }
 
+    /**
+     * Helper to render a specific section of the spritesheet onto the canvas.
+     */
     drawTile(ctx, image, frame, dx, dy, dw, dh) {
         ctx.drawImage(
             image,
@@ -131,7 +152,10 @@ export class ProgressUI {
         );
     }
 
-drawPlayerIcon(ctx, x, y) {
+    /**
+     * Renders the player's ship icon overlaid on the progress bar at the current fill level.
+     */
+    drawPlayerIcon(ctx, x, y) {
         const playerImage = this.assets.getImage('ships');
         if (!playerImage) return;
 

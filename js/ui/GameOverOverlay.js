@@ -1,6 +1,6 @@
 // js/ui/GameOverOverlay.js
 import { Button } from './Button.js';
-import { UIConfig } from './UIConfig.js';
+import { UIConfig } from '../UIConfig.js';
 import { GameConfig } from '../GameConfig.js';
 
 export class GameOverOverlay {

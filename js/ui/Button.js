@@ -1,5 +1,5 @@
 // js/ui/Button.js
-import { UIConfig } from './UIConfig.js';
+import { UIConfig } from '../UIConfig.js';
 import { GameConfig } from '../GameConfig.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js'; // NOUVEL IMPORT
 

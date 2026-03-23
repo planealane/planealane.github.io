@@ -2,30 +2,36 @@
 
 export class Weapon {
     constructor(baseStats) {
-        // On clone les stats de base. 
-        // Crucial : cela permet d'appliquer des bonus sur this.stats sans modifier GameConfig.WEAPONS !
+        // Clone base stats to allow applying buffs to this.stats 
+        // without mutating the global GameConfig.WEAPONS template.
         this.stats = { ...baseStats }; 
         this.currentCooldown = 0;
     }
 
     update(dt, sourceEntity, entityManager) {
         if (this.currentCooldown > 0) {
-            this.currentCooldown -= dt; // dt est en millisecondes
+            this.currentCooldown -= dt; // dt is in milliseconds
         }
 
-        // Tir automatique dès que le cooldown est à 0 (ou en dessous)
+        // Auto-fire as soon as the cooldown reaches 0 or below
         if (this.currentCooldown <= 0) {
-            this.fire(sourceEntity, entityManager);
+            // Execute fire and capture the result
+            const didFire = this.fire(sourceEntity, entityManager);
             
-            // On reset le cooldown basé sur la stat ACTUELLE (potentiellement buffée)
-            this.currentCooldown = this.stats.cooldown;
+            // Reset cooldown based on the CURRENT (potentially buffed) stat 
+            // ONLY if the weapon successfully fired
+            if (didFire !== false) {
+                this.currentCooldown = this.stats.cooldown;
+            }
         }
     }
 
     /**
-     * Méthode abstraite. DOIT être réécrite par l'arme enfant.
+     * Abstract method. MUST be overridden by the child class.
+     * @returns {boolean} Should return false if firing conditions (like target availability) are not met.
      */
     fire(sourceEntity, entityManager) {
-        console.warn("La méthode fire() doit être implémentée par la classe enfant.");
+        console.warn("The fire() method must be implemented by the child class.");
+        return true; // Fallback
     }
 }

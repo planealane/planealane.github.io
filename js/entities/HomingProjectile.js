@@ -1,64 +1,82 @@
 // js/entities/HomingProjectile.js
+import { GameConfig } from '../GameConfig.js';
 import { PropsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity } from './Entity.js';
 import { Enemy } from './Enemy.js';
 import { Boss } from './Boss.js';
-import { GameConfig } from '../GameConfig.js';
 
 export class HomingProjectile extends SpriteEntity {
-    constructor(x, y, damage, image, initialAngle) {
-        const frame = PropsAtlas.projectile; // Placeholder frame
-        const size = GameConfig.PROJECTILE_SIZE * 0.8; // Slightly smaller than primary
+    constructor(x, y, damage, speed, turnFactor, image, initialAngle, spawnDelay = 0) {
+        const frame = PropsAtlas.projectiles[4];
 
-        super(x, y, size, size, image, frame, 0, 11);
+        // 1. Calcul dans une constante locale (pas de 'this')
+        const targetSize = GameConfig.PROJECTILE_SIZE * 0.8;
 
+        // 2. Initialisation du parent avec 0, 0
+        super(x, y, 0, 0, image, frame, 0, GameConfig.Z_INDEX.PROJECTILE);
+
+        // 3. Maintenant on a le droit d'utiliser 'this'
+        this.targetSize = targetSize;
         this.damage = damage;
-        this.speed = 12; // Base speed (pixels per ms)
-        
-        // Initial velocity vector based on the firing angle
+        this.speed = speed;
+
         this.vx = Math.cos(initialAngle) * this.speed;
         this.vy = Math.sin(initialAngle) * this.speed;
+        this.turnFactor = turnFactor;
 
-        // How fast the projectile can adjust its trajectory
-        this.turnFactor = 0.008; 
+        this.lockedTarget = null;
+        this.hasLockedOn = false;
+
+        this.spawnDelay = spawnDelay;
     }
 
     update(dt, playerX, entityManager) {
-        // 1. Find nearest valid target
-        const target = this.getNearestTarget(entityManager.entities);
+        // 1. Handle spawn delay
+        if (this.spawnDelay > 0) {
+            this.spawnDelay -= dt;
 
-        // 2. Steer towards target if one exists
-        if (target) {
-            const dx = target.x - this.x;
-            const dy = target.y - this.y;
-            const distance = Math.hypot(dx, dy);
-
-            // Calculate desired velocity vector directly towards the target
-            const desiredVx = (dx / distance) * this.speed;
-            const desiredVy = (dy / distance) * this.speed;
-
-            // Interpolate current velocity towards desired velocity for a smooth curve
-            this.vx += (desiredVx - this.vx) * (this.turnFactor * dt);
-            this.vy += (desiredVy - this.vy) * (this.turnFactor * dt);
+            // Activate physics and collisions once delay is over
+            if (this.spawnDelay <= 0) {
+                this.width = this.targetSize;
+                this.height = this.targetSize;
+            } else {
+                return; // Stay dormant
+            }
         }
 
-        // 3. Apply velocity to position
+        // 2. Target acquisition
+        if (!this.hasLockedOn) {
+            this.lockedTarget = this.getNearestTarget(entityManager.entities);
+            if (this.lockedTarget) {
+                this.hasLockedOn = true;
+            }
+        }
+
+        // 3. Homing steering logic
+        if (this.hasLockedOn && this.lockedTarget && !this.lockedTarget.markForDeletion) {
+            const dx = this.lockedTarget.x - this.x;
+            const dy = this.lockedTarget.y - this.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance > 0) {
+                const desiredVx = (dx / distance) * this.speed;
+                const desiredVy = (dy / distance) * this.speed;
+
+                this.vx += (desiredVx - this.vx) * (this.turnFactor * dt);
+                this.vy += (desiredVy - this.vy) * (this.turnFactor * dt);
+            }
+        }
+
         this.x += this.vx * dt;
         this.y += this.vy * dt;
-
-        // 4. Update visual rotation (Sprite naturally faces up, so add PI/2)
         this.angle = Math.atan2(this.vy, this.vx) + (Math.PI / 2);
 
-        // Despawn bounds (wider bounds since homing missiles can loop around)
-        if (this.y < -200 || this.y > GameConfig.GAME_HEIGHT + 200 || 
+        if (this.y < -200 || this.y > GameConfig.GAME_HEIGHT + 200 ||
             this.x < -200 || this.x > GameConfig.GAME_WIDTH + 200) {
             this.markForDeletion = true;
         }
     }
 
-    /**
-     * Scans the entity pool to find the closest Enemy or Boss.
-     */
     getNearestTarget(entities) {
         let nearest = null;
         let minDistance = Infinity;
@@ -67,6 +85,10 @@ export class HomingProjectile extends SpriteEntity {
             if (entity.markForDeletion) continue;
             
             if (entity instanceof Enemy || entity instanceof Boss) {
+                // Prevent targeting enemies that haven't entered the screen yet, 
+                // or have already passed the bottom bounds.
+                if (entity.y < 0 || entity.y > GameConfig.GAME_HEIGHT) continue;
+
                 const dist = Math.hypot(entity.x - this.x, entity.y - this.y);
                 if (dist < minDistance) {
                     minDistance = dist;
@@ -76,5 +98,29 @@ export class HomingProjectile extends SpriteEntity {
         }
 
         return nearest;
+    }
+
+    draw(ctx) {
+        // Do not render if still dormant
+        if (this.spawnDelay > 0) return;
+
+        super.draw(ctx);
+
+        if (this.hasLockedOn && this.lockedTarget && !this.lockedTarget.markForDeletion) {
+            const reticleFrame = PropsAtlas.target_reticle;
+            const reticleSize = GameConfig.SHIP_SIZE;
+
+            ctx.save();
+            ctx.translate(this.lockedTarget.x, this.lockedTarget.y);
+
+            ctx.drawImage(
+                this.image,
+                reticleFrame.sx, reticleFrame.sy, reticleFrame.sWidth, reticleFrame.sHeight,
+                -reticleSize / 2, -reticleSize / 2,
+                reticleSize, reticleSize
+            );
+
+            ctx.restore();
+        }
     }
 }

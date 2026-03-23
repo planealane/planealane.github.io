@@ -5,73 +5,90 @@ export const GameConfig = {
     // ENGINE & GAME STATES
     // ==========================================
     STATES: {
-        START: 0,
-        PLAYING: 1,
-        GAMEOVER: 2
+        START: 0,       // Initial menu state
+        PLAYING: 1,     // Active gameplay loop
+        GAMEOVER: 2     // Post-death screen
     },
 
-    // Typography
-    FONT_FAMILY: "'GameFont', sans-serif",
-    FONT_SIZE_SM: 40,
-    FONT_SIZE_MD: 60, // Standard floating text (e.g., damage numbers)
-    FONT_SIZE_LG: 80, // Big announcements or Gates UI
+    // ==========================================
+    // RENDER LAYERS (Z-INDEX)
+    // ==========================================
+    Z_INDEX: {
+        BACKGROUND: 0,  // Parallax scrolling background
+        ENEMY: 10,      // Standard mobs
+        BOSS: 15,       // Large entities (rendered under player)
+        PLAYER: 20,     // The user's ship
+        COLLECTIBLE: 25,// Loot drops (rendered above player)
+        PROJECTILE: 30, // Bullets and missiles (rendered above ships)
+        VFX: 40,        // Visual effects (explosions, reticles)
+        UI: 50          // Heads-up display (health, score, prompts)
+    },
 
-    // Resolution (Target aspect ratio: 9:16)
-    GAME_WIDTH: 1080,
-    GAME_HEIGHT: 1920,
+    // ==========================================
+    // TYPOGRAPHY & RESOLUTION
+    // ==========================================
+    FONT_FAMILY: "'GameFont', sans-serif", // Primary font stack
+    FONT_SIZE_SM: 40,                      // Small UI text
+    FONT_SIZE_MD: 60,                      // Standard floating combat text
+    FONT_SIZE_LG: 80,                      // Screen announcements
 
-    // Global downward scrolling speed for all entities (pixels per ms)
-    SCROLL_SPEED: 0.3,
+    GAME_WIDTH: 1080,                      // Logical canvas width (9:16 ratio)
+    GAME_HEIGHT: 1920,                     // Logical canvas height (9:16 ratio)
+
+    SCROLL_SPEED: 0.3,                     // Downward velocity for environment/entities (px/ms)
 
     // ==========================================
     // GRID & POSITIONING SYSTEM
     // ==========================================
-    // Playable area margin (10% of width on each side)
-    MARGIN_X: 108,
+    MARGIN_X: 108,                         // 10% horizontal safe zone margin
 
-    // Lane centers for nested grids. 
-    // These specific values evenly distribute entities across the remaining 80% of the screen.
-    ENEMY_LANES: [216, 432, 648, 864], // 4 lanes for enemies
-    GATE_LANES: [324, 756],            // 2 lanes for gates, sitting exactly between enemy lanes
+    ENEMY_LANES: [216, 432, 648, 864],     // X-coordinates for 4 distinct enemy spawn columns
+    GATE_LANES: [324, 756],                // X-coordinates for gate spawns (centered between enemy lanes)
 
     // ==========================================
     // ENTITY BASE SIZES (Pixels)
     // ==========================================
-    // Note: Height is usually calculated dynamically in entities to lock the aspect ratio of the sprite.
-    SHIP_SIZE: 200,         // Base width/height for player and standard enemies
-    PROJECTILE_SIZE: 64,    // Standard bullet size
-    BOSS_BASE_WIDTH: 300,   // The absolute base width for a boss before applying its specific 'scale' multiplier
-    GATE_BASE_WIDTH: 280,   // Target physical width for the gate collision box
+    SHIP_SIZE: 200,                        // Hitbox/sprite dimension for standard ships
+    PROJECTILE_SIZE: 64,                   // Hitbox/sprite dimension for bullets
+    BOSS_BASE_WIDTH: 300,                  // Baseline width for boss scaling calculations
+    GATE_BASE_WIDTH: 280,                  // Hitbox width for upgrade gates
 
     // ==========================================
-    // PLAYER & ENEMY STATS
+    // PLAYER CONFIGURATION
     // ==========================================
-    PLAYER_BASE_HP: 1,
-    PLAYER_BASE_DMG: 10,
-    ENEMY_BASE_HP: 20,
-
-    // Default ship sprite index (0 to 11 for yellow ships from the atlas)
-    PLAYER_BASE_VARIANT: 10,
-    TITLE_PLAYER_SIZE: 450, // Visual size of the ship on the main menu
+    PLAYER_BASE_HP: 1,                     // Initial health points
+    PLAYER_BASE_DMG: 10,                   // Legacy config, currently unused as weapon stats take over
+    PLAYER_BASE_VARIANT: 10,               // Initial sprite index for the player ship
+    TITLE_PLAYER_SIZE: 450,                // Sprite dimension for the ship on the start menu
 
     // ==========================================
-    // DIFFICULTY SCALING MULTIPLIERS
+    // BALANCE & SCALING (HP Formulas)
     // ==========================================
-    ENEMY_HP_SCALING: 0.5,
-    BOSS_HP_SCALING: 1.0,   // Multiplier to fine-tune boss health curves independently
 
     /**
-     * Calculates standard enemy HP based on the current wave/difficulty level.
+     * Calculates normal enemy HP based on progression index (x).
+     * Formula: 10 + 0.2x^2 + 0.03x^3
      */
-    calculateEnemyHp: function (currentWave) {
-        return Math.floor(this.ENEMY_BASE_HP + (currentWave * this.ENEMY_HP_SCALING));
+    calculateEnemyHp: function (x) {
+        const index = Math.max(1, x);
+        return Math.floor(10 + (0.2 * Math.pow(index, 2)) + (0.03 * Math.pow(index, 3)));
     },
 
     /**
-     * Calculates boss HP by taking its base config HP and applying the global boss scaling factor.
+     * Calculates Boss / Miniboss HP based on progression index and type.
      */
-    calculateBossHp: function (baseHp, difficultyLevel) {
-        return Math.floor(baseHp * (1 + (difficultyLevel * this.BOSS_HP_SCALING)));
+    calculateBossHp: function (x, encounterType = 'BOSS') {
+        const index = Math.max(1, x);
+
+        if (encounterType === 'TUTORIAL') return 50;     // Fixed HP for tutorial
+        if (encounterType === 'FINAL') return 50000;      // Fixed HP for the final encounter
+
+        if (encounterType === 'MINIBOSS') {
+            // HP scaling reduced by a factor of 10 (Formula: x^2 + 10x)
+            return Math.floor(Math.pow(index, 2) + (10 * index));
+        }
+
+        return Math.floor(3.3 * Math.pow(index, 2));       // 33x^2 (Standard Bosses)
     },
 
     // ==========================================
@@ -79,32 +96,26 @@ export const GameConfig = {
     // ==========================================
     BOSS_DEFINITIONS: {
         'miniboss': {
-            assetKey: 'miniboss',
-            baseHp: 25,
-            // 'scale' is a multiplier applied to BOSS_BASE_WIDTH.
-            // Example: A scale of 2.0 with a 300 base width means the miniboss will be 600px wide.
-            // It also serves as the baseline for the "shrink on hit" visual juice effect.
-            scale: 2.0 
+            assetKey: 'miniboss', // Sprite atlas key
+            scale: 2.0            // Visual/hitbox multiplier applied to BOSS_BASE_WIDTH
         },
         'boss': {
             assetKey: 'boss',
-            baseHp: 25, 
-            scale: 3.0  // Will render at 900px wide (300 * 3)
+            scale: 3.0            // Renders at 900px
         },
         'final_boss': {
-            assetKey: 'finalboss', 
-            baseHp: 50,
-            scale: 4.0  // Will render at 1200px wide, intentionally overflowing the screen width
+            assetKey: 'finalboss',
+            scale: 4.0            // Renders at 1200px (intentional screen overflow)
         }
     },
 
     /**
      * Helper function to map encounter data to the correct boss configuration.
      */
-    getBossDef: function(encounterData) {
+    getBossDef: function (encounterData) {
         if (encounterData.id === 'final_boss') return this.BOSS_DEFINITIONS['final_boss'];
         if (encounterData.type === 'MINIBOSS') return this.BOSS_DEFINITIONS['miniboss'];
-        return this.BOSS_DEFINITIONS['boss']; // Default standard boss fallback
+        return this.BOSS_DEFINITIONS['boss']; // Fallback
     },
 
     // ==========================================
@@ -112,14 +123,17 @@ export const GameConfig = {
     // ==========================================
     WEAPONS: {
         PRIMARY: {
-            damage: 10,
-            cooldown: 200,       // Time in ms between shots
-            projectileSpeed: 15  // Downward/Upward velocity
+            damage: 10,             // Base damage per bullet
+            cooldown: 1000,         // Firing delay in ms
+            projectileSpeed: 1      // Base bullet velocity
         },
         SECONDARY: {
-            damage: 5,
-            cooldown: 10000,     // 10 seconds default cooldown
-            count: 3             // Number of homing instances spawned per burst
+            damage: 5,              // Base damage per missile
+            cooldown: 10000,        // Firing delay in ms (10s)
+            count: 3,               // Missiles fired per burst
+            projectileSpeed: 1,     // Base missile velocity
+            turnFactor: 0.008,      // Turning speed for homing tracking
+            staggerMs: 120          // Delay between each missile in a burst
         }
     },
 
@@ -127,17 +141,12 @@ export const GameConfig = {
     // UPGRADE TIERS (Index 0 = Tier 1, Index 1 = Tier 2, Index 2 = Tier 3)
     // ==========================================
     UPGRADES: {
-        // Primary Weapon
-        PRIMARY_DAMAGE: [1, 2, 3],             // Flat addition
-        PRIMARY_FIRE_RATE: [10, 20, 30],       // Flat ms reduction from cooldown
-        PRIMARY_BULLET_SPEED: [1, 2, 3],       // Flat addition to projectile velocity
-
-        // Secondary Weapon
-        SECONDARY_DAMAGE: [1, 2, 3],           // Flat addition to each instance's damage
-        SECONDARY_COUNT: [1, 2, 3],            // Flat addition to the number of instances spawned
-        SECONDARY_COOLDOWN: [0.05, 0.10, 0.15], // Percentage reduction of current cooldown (5%, 10%, 15%)
-
-        // Survival
-        HULL_REPAIR: [10, 20, 30]                // Flat addition to the uncapped health pool
-    },
+        PRIMARY_DAMAGE: [1, 2, 3],              // Flat addition
+        PRIMARY_FIRE_RATE: [10, 20, 30],        // Flat ms reduction
+        PRIMARY_BULLET_SPEED: [1, 2, 3],        // Flat addition
+        SECONDARY_DAMAGE: [1, 2, 3],            // Flat addition
+        SECONDARY_COUNT: [1, 2, 3],             // Flat addition
+        SECONDARY_COOLDOWN: [0.05, 0.10, 0.15], // Percentage reduction
+        HULL_REPAIR: [10, 20, 30]               // Flat HP addition
+    }
 };

@@ -1,5 +1,6 @@
 // js/Entity.js
 import { GameConfig } from '../GameConfig.js';
+import { UIConfig } from '../UIConfig.js';
 
 // ============================================================================
 // UTILITIES
@@ -26,6 +27,33 @@ export function drawFloatingText(ctx, text, x, y, color, fontSize = GameConfig.F
     ctx.fillText(text, x, y);
     
     ctx.restore();
+}
+
+/**
+ * Standardized rendering for all bonus texts (Gates, Collectibles)
+ */
+export function drawBonusText(ctx, text, x, y, color, fontSize) {
+    // [MODIFIÉ] On pointe vers UIConfig
+    const visuals = UIConfig.BONUS_VISUALS;
+
+    ctx.font = `bold ${fontSize}px ${visuals.FONT_FAMILY}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 1. Setup Drop Shadow
+    ctx.shadowColor = visuals.SHADOW_COLOR;
+    ctx.shadowBlur = visuals.SHADOW_BLUR;
+    ctx.shadowOffsetY = visuals.SHADOW_OFFSET_Y;
+
+    // 2. Draw Outline (Stroke)
+    ctx.strokeStyle = visuals.OUTLINE_COLOR;
+    ctx.lineWidth = visuals.OUTLINE_WIDTH;
+    ctx.strokeText(text, x, y);
+
+    // 3. Draw Fill (Disable shadow to prevent muddying the core color)
+    ctx.shadowColor = 'transparent'; 
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
 }
 
 // ============================================================================

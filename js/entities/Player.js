@@ -11,7 +11,7 @@ export class Player extends SpriteEntity {
         const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
-        super(GameConfig.GAME_WIDTH / 2, GameConfig.GAME_HEIGHT - 300, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, 0, 10);
+        super(GameConfig.GAME_WIDTH / 2, GameConfig.GAME_HEIGHT - 300, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, 0, GameConfig.Z_INDEX.PLAYER);
 
         this.currentVariant = safeIndex;
 
@@ -72,5 +72,17 @@ export class Player extends SpriteEntity {
         super.draw(ctx);
         const textY = this.y + (this.height / 2) + 25;
         drawFloatingText(ctx, `${Math.floor(this.stats.hp)}`, this.x, textY, '#2ecc71');
+    }
+
+    /**
+     * Updates the player's visual sprite based on the variant index.
+     * @param {number} variantIndex - The index from ShipsAtlas (e.g., 0 to 11)
+     */
+    setVariant(variantIndex) {
+        this.currentVariant = variantIndex;
+        if (this.image) {
+            const safeIndex = this.currentVariant % ShipsAtlas.PLAYER_VARIANTS;
+            this.frame = ShipsAtlas.getFrame(safeIndex, this.image.width, this.image.height);
+        }
     }
 }

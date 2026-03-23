@@ -8,7 +8,7 @@ export const ProgressionConfig = {
  * Defines at which block index a specific encounter triggers.
  */
 export const LevelProgression = [
-    { blockIndex: 3,  type: 'BOSS', id: 'tutorial_boss' },
+    { blockIndex: 3,  type: 'TUTORIAL', id: 'tutorial_boss' },
     { blockIndex: 6,  type: 'MINIBOSS', id: 'miniboss_1' },
     { blockIndex: 9,  type: 'MINIBOSS', id: 'miniboss_2' },
     { blockIndex: 12, type: 'BOSS', id: 'boss_tier_1' },

@@ -104,24 +104,30 @@ export class SpawnManager {
 
         const selectedRows = availableRows.sort(() => 0.5 - Math.random()).slice(0, enemyCount);
 
-        selectedRows.forEach(rowIndex => {
-            const randomLaneIndex = Math.floor(Math.random() * GameConfig.ENEMY_LANES.length);
-            const x = GameConfig.ENEMY_LANES[randomLaneIndex];
-            const y = startY - (rowIndex * rowSpacing);
+    selectedRows.forEach(rowIndex => {
+        const randomLaneIndex = Math.floor(Math.random() * GameConfig.ENEMY_LANES.length);
+        const x = GameConfig.ENEMY_LANES[randomLaneIndex];
+        const y = startY - (rowIndex * rowSpacing);
 
-            const scaledHp = GameConfig.calculateEnemyHp(Math.floor(this.difficultyLevel));
-            entityManager.addEntity(new Enemy(x, y, entityManager.assets.getImage('ships'), scaledHp));
-        });
+        // Calculate HP using the polynomial curve based on current block index
+        const scaledHp = GameConfig.calculateEnemyHp(this.blocksSpawned);
+        
+        entityManager.addEntity(new Enemy(x, y, entityManager.assets.getImage('ships'), scaledHp));
+    });
     }
 
     spawnBoss(entityManager, encounterData, yPosition) {
         const x = GameConfig.GAME_WIDTH / 2;
         
-        // Appel direct via GameConfig
         const bossDef = GameConfig.getBossDef(encounterData);
         
-        // Calcul des HP via la méthode centralisée qu'on a mise en place précédemment
-        const scaledHp = GameConfig.calculateBossHp(bossDef.baseHp, Math.floor(this.difficultyLevel));
+        // Ensure encounterData specifies the type (e.g., 'BOSS', 'MINIBOSS', 'TUTORIAL')
+        // Default to 'BOSS' if undefined
+        const encounterType = encounterData.type || 'BOSS';
+
+        // Calculate HP using the specific boss formulas
+        const scaledHp = GameConfig.calculateBossHp(this.blocksSpawned, encounterType);
+        
         const bossImage = entityManager.assets.getImage(bossDef.assetKey);
 
         const boss = new Boss(x, yPosition, bossImage, scaledHp, bossDef);
@@ -154,20 +160,16 @@ export class SpawnManager {
     getProgressRatio() {
         if (LevelProgression.length === 0) return 1;
 
-        // 1. Get the very last milestone of the game (Final Boss)
         const finalMilestone = LevelProgression[LevelProgression.length - 1];
         
-        // 2. Calculate the absolute total distance of the full game in pixels
-        // (index of the last block - 1) * block size
-        const totalGameDistance = (finalMilestone.blockIndex - 1) * this.blockHeight;
+        // Fix: Exact distance is the number of blocks multiplied by block height.
+        // Removed the (blockIndex - 1) offset which desynchronized the UI.
+        const totalGameDistance = finalMilestone.blockIndex * this.blockHeight;
 
-        // Prevent division by zero
         if (totalGameDistance <= 0) return 1;
 
-        // 3. The ratio is simply the scrolled distance divided by the total distance
         const exactProgress = this.totalDistanceScrolled / totalGameDistance;
 
-        // 4. Clamp between 0.0 and 1.0 for the UI
         return Math.min(1, Math.max(0, exactProgress));
     }
 }

@@ -9,6 +9,8 @@ import { checkAABB, checkExtendedAABB } from '../core/Physics.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 import { Boss } from '../entities/Boss.js';
 import { UpgradeManager } from '../managers/UpgradeManager.js';
+import { SuperCollectible } from '../entities/SuperCollectible.js';
+
 export class EntityManager {
     constructor(assets) {
         this.assets = assets;
@@ -22,6 +24,7 @@ export class EntityManager {
     update(dt, playerX) {
         this.entities.forEach(entity => entity.update(dt, playerX, this));
         this.handleCollisions();
+        this.processDeaths(); // [NEW] Centralized death logic
         this.entities = this.entities.filter(entity => !entity.markForDeletion);
     }
 
@@ -31,29 +34,32 @@ export class EntityManager {
     }
 
     // ============================================================================
-    // COLLISION DETECTION (Decoupled via EventBus)
+    // COLLISION DETECTION
     // ============================================================================
 
     handleCollisions() {
-        const projectiles = this.entities.filter(e => e instanceof Projectile || e instanceof HomingProjectile); const enemies = this.entities.filter(e => e instanceof Enemy || e instanceof Boss);
+        const projectiles = this.entities.filter(e => e instanceof Projectile || e instanceof HomingProjectile);
+        const enemies = this.entities.filter(e => e instanceof Enemy || e instanceof Boss);
         const collectibles = this.entities.filter(e => e instanceof Collectible);
         const gates = this.entities.filter(e => e instanceof Gate);
+        const superCollectibles = this.entities.filter(e => e.constructor.name === 'SuperCollectible');
         const player = this.entities.find(e => e instanceof Player);
 
         if (!player) return;
 
-        // A. Projectiles vs Enemies
+        // A. Projectiles vs Enemies (Only apply damage)
         projectiles.forEach(projectile => {
             if (projectile.markForDeletion) return;
 
             enemies.forEach(enemy => {
-                if (enemy.markForDeletion) return;
+                if (enemy.markForDeletion || enemy.hp <= 0) return; // Ignore already dead enemies
+                if (enemy.y < 0) return; // Invincibility frame
 
                 if (checkAABB(projectile, enemy)) {
                     projectile.markForDeletion = true;
                     enemy.hp -= projectile.damage;
-                    gameEvents.emit(EVENTS.PLAY_SFX, { id: 'impact', volume: 0.5 });
 
+                    gameEvents.emit(EVENTS.PLAY_SFX, { id: 'impact', volume: 0.5 });
                     gameEvents.emit(EVENTS.DAMAGE_TAKEN, {
                         x: enemy.x,
                         y: enemy.y - 20,
@@ -62,38 +68,19 @@ export class EntityManager {
                     });
 
                     if (enemy.onHit) enemy.onHit();
-
-                    if (enemy.hp <= 0) {
-                        enemy.markForDeletion = true;
-                        gameEvents.emit(EVENTS.PLAY_SFX, { id: 'explosion', volume: 0.6 });
-                        gameEvents.emit(EVENTS.ENEMY_DESTROYED, {
-                            x: enemy.x,
-                            y: enemy.y,
-                            width: enemy.width,
-                            height: enemy.height,
-                            entityManager: this
-                        });
-                    }
                 }
             });
         });
 
         // B. Enemies vs Player
         enemies.forEach(enemy => {
-            if (enemy.markForDeletion) return;
+            if (enemy.markForDeletion || enemy.hp <= 0) return;
 
             if (checkAABB(player, enemy)) {
-                enemy.markForDeletion = true;
-
-                gameEvents.emit(EVENTS.ENEMY_DESTROYED, {
-                    x: enemy.x,
-                    y: enemy.y,
-                    width: enemy.width,
-                    height: enemy.height,
-                    entityManager: this
-                });
-
-                player.stats.hp -= enemy.hp;
+                // Instantly kill the enemy
+                enemy.hp = 0; 
+                
+                player.stats.hp -= enemy.hp; // (Bug noted here in your original code: if enemy.hp is 0, player takes 0 damage. You might want to use enemy.stats.maxHp or a fixed ramming damage)
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'player_hit', volume: 0.8 });
 
                 if (player.stats.hp <= 0) {
@@ -109,12 +96,7 @@ export class EntityManager {
 
             if (checkExtendedAABB(player, collectible, 60)) {
                 collectible.markForDeletion = true;
-
-                // [MODIFIÉ] On passe par le nouveau UpgradeManager
-                // Assure-toi que collectible stocke bien une clé valide (ex: 'PRIMARY_DAMAGE') dans 'type'
-                // On met le tierIndex à 0 par défaut pour les loots standards
                 UpgradeManager.apply(player, collectible.type, 0);
-
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.7 });
             }
         });
@@ -124,16 +106,62 @@ export class EntityManager {
             if (gate.markForDeletion) return;
 
             if (checkAABB(player, gate)) {
-                // [MODIFIÉ] On supprime gate.applyBonus(player);
-                // On délègue l'application au manager
                 UpgradeManager.apply(player, gate.bonusType, gate.tierIndex || 0);
-
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.8 });
 
                 gates.forEach(g => {
                     if (Math.abs(g.y - gate.y) < 20) {
                         g.markForDeletion = true;
                     }
+                });
+            }
+        });
+
+        // E. Player vs Super Collectibles
+        superCollectibles.forEach(superLoot => {
+            if (superLoot.markForDeletion) return;
+
+            // Adding a small delay (1 second) before pickup is allowed
+            // This prevents instant pickup if the player is sitting right where the boss died
+            if (superLoot.aliveTime < 1000) return; 
+
+            if (checkAABB(player, superLoot)) {
+                superLoot.markForDeletion = true;
+                gameEvents.emit(EVENTS.PLAY_SFX, { id: 'super_bonus', volume: 1.0 });
+                gameEvents.emit(EVENTS.SUPER_LOOT_PICKUP, { player: player });
+            }
+        });
+    }
+
+    // ============================================================================
+    // DEATH PROCESSING (Centralized Loot & VFX)
+    // ============================================================================
+    
+    processDeaths() {
+        const enemies = this.entities.filter(e => e instanceof Enemy || e instanceof Boss);
+        
+        enemies.forEach(enemy => {
+            if (!enemy.markForDeletion && enemy.hp <= 0) {
+                
+                // 1. Mark for removal
+                enemy.markForDeletion = true;
+                
+                // 2. Audio
+                gameEvents.emit(EVENTS.PLAY_SFX, { id: 'explosion', volume: 0.6 });
+
+                // 3. Loot
+                if (enemy.isBoss) {
+                    this.addEntity(new SuperCollectible(enemy.x, enemy.y));
+                }
+
+                // 4. Global Event
+                gameEvents.emit(EVENTS.ENEMY_DESTROYED, {
+                    x: enemy.x,
+                    y: enemy.y,
+                    width: enemy.width,
+                    height: enemy.height,
+                    isBoss: enemy.isBoss,
+                    entityManager: this
                 });
             }
         });

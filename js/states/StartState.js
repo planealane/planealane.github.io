@@ -1,7 +1,7 @@
 // js/states/StartState.js
 import { State } from './State.js';
 import { Button } from '../ui/Button.js';
-import { UIConfig } from '../ui/UIConfig.js';
+import { UIConfig } from '../UIConfig.js';
 import { GameConfig } from '../GameConfig.js';
 import { ShipsAtlas } from '../utils/Atlas.js';
 // Optional: import { gameEvents, EVENTS } from '../core/EventBus.js'; // To play a sound on takeoff

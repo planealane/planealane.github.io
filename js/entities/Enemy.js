@@ -10,7 +10,8 @@ export class Enemy extends SpriteEntity {
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
         // Enemies face downward (Math.PI)
-        super(x, y, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, Math.PI, 20);
+        // [MODIFIÉ] On utilise GameConfig.Z_INDEX.ENEMY au lieu de 20
+        super(x, y, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, Math.PI, GameConfig.Z_INDEX.ENEMY);
         
         this.speed = GameConfig.SCROLL_SPEED;
 
