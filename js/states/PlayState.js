@@ -2,7 +2,7 @@
 import { State } from './State.js';
 import { EntityManager } from '../managers/EntityManager.js';
 import { Player } from '../entities/Player.js';
-import { Spawner } from '../managers/Spawner.js';
+import { SpawnManager } from '../managers/SpawnManager.js';
 import { GameOverOverlay } from '../ui/GameOverOverlay.js';
 import { VFXManager } from '../managers/VFXManager.js';
 import { ProgressUI } from '../ui/ProgressUI.js';
@@ -33,7 +33,7 @@ export class PlayState extends State {
         // 3. Initialize the new game world
         this.gameManager.entityManager = new EntityManager(this.gameManager.assets);
         this.gameManager.entityManager.addEntity(new Player(this.gameManager.assets.getImage('ships')));
-        this.spawner = new Spawner();
+        this.spawner = new SpawnManager();
         this.vfxManager = new VFXManager(this.gameManager.assets);
         this.progressUI = new ProgressUI(this.gameManager.canvas.height, this.gameManager.assets);
 

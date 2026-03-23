@@ -105,5 +105,39 @@ export const GameConfig = {
         if (encounterData.id === 'final_boss') return this.BOSS_DEFINITIONS['final_boss'];
         if (encounterData.type === 'MINIBOSS') return this.BOSS_DEFINITIONS['miniboss'];
         return this.BOSS_DEFINITIONS['boss']; // Default standard boss fallback
-    }
+    },
+
+    // ==========================================
+    // WEAPONS BASE STATS
+    // ==========================================
+    WEAPONS: {
+        PRIMARY: {
+            damage: 10,
+            cooldown: 200,       // Time in ms between shots
+            projectileSpeed: 15  // Downward/Upward velocity
+        },
+        SECONDARY: {
+            damage: 5,
+            cooldown: 10000,     // 10 seconds default cooldown
+            count: 3             // Number of homing instances spawned per burst
+        }
+    },
+
+    // ==========================================
+    // UPGRADE TIERS (Index 0 = Tier 1, Index 1 = Tier 2, Index 2 = Tier 3)
+    // ==========================================
+    UPGRADES: {
+        // Primary Weapon
+        PRIMARY_DAMAGE: [1, 2, 3],             // Flat addition
+        PRIMARY_FIRE_RATE: [10, 20, 30],       // Flat ms reduction from cooldown
+        PRIMARY_BULLET_SPEED: [1, 2, 3],       // Flat addition to projectile velocity
+
+        // Secondary Weapon
+        SECONDARY_DAMAGE: [1, 2, 3],           // Flat addition to each instance's damage
+        SECONDARY_COUNT: [1, 2, 3],            // Flat addition to the number of instances spawned
+        SECONDARY_COOLDOWN: [0.05, 0.10, 0.15], // Percentage reduction of current cooldown (5%, 10%, 15%)
+
+        // Survival
+        HULL_REPAIR: [10, 20, 30]                // Flat addition to the uncapped health pool
+    },
 };

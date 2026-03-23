@@ -2,12 +2,13 @@
 import { Player } from '../entities/Player.js';
 import { Enemy } from '../entities/Enemy.js';
 import { Projectile } from '../entities/Projectile.js';
+import { HomingProjectile } from '../entities/HomingProjectile.js';
 import { Gate } from '../entities/Gate.js';
 import { Collectible } from '../entities/Collectible.js';
 import { checkAABB, checkExtendedAABB } from '../core/Physics.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 import { Boss } from '../entities/Boss.js';
-
+import { UpgradeManager } from '../managers/UpgradeManager.js';
 export class EntityManager {
     constructor(assets) {
         this.assets = assets;
@@ -34,8 +35,7 @@ export class EntityManager {
     // ============================================================================
 
     handleCollisions() {
-        const projectiles = this.entities.filter(e => e instanceof Projectile);
-        const enemies = this.entities.filter(e => e instanceof Enemy || e instanceof Boss);
+        const projectiles = this.entities.filter(e => e instanceof Projectile || e instanceof HomingProjectile); const enemies = this.entities.filter(e => e instanceof Enemy || e instanceof Boss);
         const collectibles = this.entities.filter(e => e instanceof Collectible);
         const gates = this.entities.filter(e => e instanceof Gate);
         const player = this.entities.find(e => e instanceof Player);
@@ -53,8 +53,7 @@ export class EntityManager {
                     projectile.markForDeletion = true;
                     enemy.hp -= projectile.damage;
                     gameEvents.emit(EVENTS.PLAY_SFX, { id: 'impact', volume: 0.5 });
-                    
-                    // Emit event for floating damage text (Enemies only)
+
                     gameEvents.emit(EVENTS.DAMAGE_TAKEN, {
                         x: enemy.x,
                         y: enemy.y - 20,
@@ -62,20 +61,17 @@ export class EntityManager {
                         isCritical: false
                     });
 
-                    if (enemy.onHit) enemy.onHit(); // Specific juice (like Boss scale)
+                    if (enemy.onHit) enemy.onHit();
 
                     if (enemy.hp <= 0) {
                         enemy.markForDeletion = true;
-
                         gameEvents.emit(EVENTS.PLAY_SFX, { id: 'explosion', volume: 0.6 });
-
-                        // [MODIFIED] Passing physical dimensions to VFXManager
-                        gameEvents.emit(EVENTS.ENEMY_DESTROYED, { 
-                            x: enemy.x, 
-                            y: enemy.y, 
-                            width: enemy.width, 
+                        gameEvents.emit(EVENTS.ENEMY_DESTROYED, {
+                            x: enemy.x,
+                            y: enemy.y,
+                            width: enemy.width,
                             height: enemy.height,
-                            entityManager: this 
+                            entityManager: this
                         });
                     }
                 }
@@ -89,17 +85,15 @@ export class EntityManager {
             if (checkAABB(player, enemy)) {
                 enemy.markForDeletion = true;
 
-                // [MODIFIED] Passing physical dimensions
-                gameEvents.emit(EVENTS.ENEMY_DESTROYED, { 
-                    x: enemy.x, 
-                    y: enemy.y, 
-                    width: enemy.width, 
+                gameEvents.emit(EVENTS.ENEMY_DESTROYED, {
+                    x: enemy.x,
+                    y: enemy.y,
+                    width: enemy.width,
                     height: enemy.height,
-                    entityManager: this 
+                    entityManager: this
                 });
 
                 player.stats.hp -= enemy.hp;
-
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'player_hit', volume: 0.8 });
 
                 if (player.stats.hp <= 0) {
@@ -115,7 +109,12 @@ export class EntityManager {
 
             if (checkExtendedAABB(player, collectible, 60)) {
                 collectible.markForDeletion = true;
-                collectible.effectDef.apply(player, collectible.value);
+
+                // [MODIFIÉ] On passe par le nouveau UpgradeManager
+                // Assure-toi que collectible stocke bien une clé valide (ex: 'PRIMARY_DAMAGE') dans 'type'
+                // On met le tierIndex à 0 par défaut pour les loots standards
+                UpgradeManager.apply(player, collectible.type, 0);
+
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.7 });
             }
         });
@@ -125,7 +124,10 @@ export class EntityManager {
             if (gate.markForDeletion) return;
 
             if (checkAABB(player, gate)) {
-                gate.applyBonus(player);
+                // [MODIFIÉ] On supprime gate.applyBonus(player);
+                // On délègue l'application au manager
+                UpgradeManager.apply(player, gate.bonusType, gate.tierIndex || 0);
+
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.8 });
 
                 gates.forEach(g => {

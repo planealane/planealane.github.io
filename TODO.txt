@@ -1,0 +1,3 @@
+Fix progress bar not matching bosses perfectly
+
+Fix being able to kill off screen

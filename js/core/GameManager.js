@@ -24,8 +24,12 @@ export class GameManager {
         this.canvas.height = GameConfig.GAME_HEIGHT;
         this.ctx.imageSmoothingEnabled = false;
 
+        // --- Time Management (Fixed Timestep) ---
         this.lastTime = 0;
         this.timeScale = 1.0;
+        this.accumulator = 0;
+        this.FIXED_TIME_STEP = 1000 / 60; // ~16.66ms per logic tick
+        this.MAX_FRAME_TIME = 250; // Cap to prevent death spiral on tab resume
 
         this.inputManager = new InputManager(this.canvas);
         this.background = new Background(this.assets, this.canvas.width, this.canvas.height);
@@ -96,28 +100,50 @@ export class GameManager {
     loop(timestamp) {
         if (!this.lastTime) this.lastTime = timestamp;
         
-        // Séparation du temps réel et du temps de jeu (pour le slo-mo)
-        const rawDt = timestamp - this.lastTime;
-        const scaledDt = rawDt * this.timeScale;
-        
+        let rawDt = timestamp - this.lastTime;
         this.lastTime = timestamp;
+
+        // 1. Prevent "Spiral of Death" if the user switches browser tabs
+        if (rawDt > this.MAX_FRAME_TIME) {
+            rawDt = this.MAX_FRAME_TIME;
+        }
+
+        const scaledDt = rawDt * this.timeScale;
+        this.accumulator += scaledDt;
 
         const pointer = this.inputManager.getPointer();
 
-        // 1. Update and draw persistent background (Affected by slo-mo)
+        // 2. UPDATE LOGIC (Fixed Timestep)
+        // Consume the accumulator in discrete, predictable chunks
+        while (this.accumulator >= this.FIXED_TIME_STEP) {
+            if (this.background) {
+                this.background.update(this.FIXED_TIME_STEP);
+            }
+
+            if (this.currentState) {
+                // Pass the fixed timestep to the state logic
+                this.currentState.update(this.FIXED_TIME_STEP, pointer);
+            }
+
+            this.accumulator -= this.FIXED_TIME_STEP;
+        }
+
+        // 3. VISUAL LOGIC & UI (Variable Timestep)
+        // Transitions are purely visual, they can use raw real-time to remain perfectly smooth
+        this.transitionManager.update(rawDt);
+
+        // 4. RENDER (Once per frame)
+        // Clear canvas if necessary, though background usually overwrites everything
+        // this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
         if (this.background) {
-            this.background.update(scaledDt);
             this.background.draw(this.ctx);
         }
 
-        // 2. Delegate logic to the active state (Pass rawDt instead of scaledDt!)
         if (this.currentState) {
-            this.currentState.update(rawDt, pointer);
             this.currentState.draw(this.ctx);
         }
 
-        // 3. Update and draw transitions on top of everything else (Real time)
-        this.transitionManager.update(rawDt);
         this.transitionManager.draw(this.ctx);
 
         requestAnimationFrame(this.loop.bind(this));

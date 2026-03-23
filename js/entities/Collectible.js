@@ -1,27 +1,43 @@
-// js/Collectible.js
+// js/entities/Collectible.js
 import { GameConfig } from '../GameConfig.js';
 import { PropsAtlas } from '../utils/Atlas.js';
-import { BonusEffects } from '../utils/Effects.js';
 import { SpriteEntity } from './Entity.js';
 
 export class Collectible extends SpriteEntity {
-    constructor(x, y, image, type, value) {
+    // Remplacement de 'value' par 'tierIndex' pour coller à la nouvelle archi
+    constructor(x, y, image, type, tierIndex = 0) {
         const frame = PropsAtlas.bonus;
         const itemSize = GameConfig.SHIP_SIZE / 2;
 
         super(x, y, itemSize, itemSize, image, frame, 0, 15);
         
         this.type = type;
-        this.value = value;
-        this.effectDef = BonusEffects[this.type];
+        this.tierIndex = tierIndex;
+        
+        // Sécurité au cas où on passerait un type invalide
+        this.bonusValue = GameConfig.UPGRADES[this.type] ? GameConfig.UPGRADES[this.type][this.tierIndex] : 0;
         
         this.speed = GameConfig.SCROLL_SPEED;
         this.aliveTime = 0;
         this.floatSpeed = 0.004;
         this.floatAmplitude = 8;
         
-        // I-frames to prevent accidental immediate pickup upon spawning
         this.pickupDelay = 300; 
+        
+        this.setupVisuals();
+    }
+
+    setupVisuals() {
+        switch (this.type) {
+            case 'HULL_REPAIR': this.text = `+${this.bonusValue} HP`; this.color = '#2ecc71'; break;
+            case 'PRIMARY_DAMAGE': this.text = `+${this.bonusValue} DMG`; this.color = '#ff4757'; break;
+            case 'PRIMARY_FIRE_RATE': this.text = `-${this.bonusValue}ms CD`; this.color = '#00e5ff'; break;
+            case 'PRIMARY_BULLET_SPEED': this.text = `+${this.bonusValue} VEL`; this.color = '#f1c40f'; break;
+            case 'SECONDARY_DAMAGE': this.text = `+${this.bonusValue} BURST DMG`; this.color = '#e67e22'; break;
+            case 'SECONDARY_COUNT': this.text = `+${this.bonusValue} PROJ`; this.color = '#e84393'; break;
+            case 'SECONDARY_COOLDOWN': this.text = `-${Math.round(this.bonusValue * 100)}% CD`; this.color = '#9b59b6'; break;
+            default: this.text = `+UPGRADE`; this.color = '#ffffff';
+        }
     }
 
     update(dt) {
@@ -38,16 +54,13 @@ export class Collectible extends SpriteEntity {
     }
 
     draw(ctx) {
-        // Calculate vertical offset using Sine wave
         const floatOffset = Math.sin(this.aliveTime * this.floatSpeed) * this.floatAmplitude;
 
-        // Temporarily shift physical Y for the sprite render
         const originalY = this.y;
         this.y += floatOffset;
 
         super.draw(ctx);
 
-        // Restore actual Y position immediately
         this.y = originalY;
 
         ctx.save();
@@ -60,12 +73,13 @@ export class Collectible extends SpriteEntity {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
+        // Affichage du texte pré-formaté
         ctx.strokeStyle = '#000';
         ctx.lineWidth = fontSize * 0.1;
-        ctx.strokeText(`+${this.value}`, 0, textY);
+        ctx.strokeText(this.text, 0, textY);
 
-        ctx.fillStyle = this.effectDef.color;
-        ctx.fillText(`+${this.value}`, 0, textY);
+        ctx.fillStyle = this.color;
+        ctx.fillText(this.text, 0, textY);
 
         ctx.restore();
     }

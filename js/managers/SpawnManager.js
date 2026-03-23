@@ -1,4 +1,4 @@
-// js/managers/Spawner.js
+// js/managers/SpawnManager.js
 import { Enemy } from '../entities/Enemy.js';
 import { Gate } from '../entities/Gate.js';
 import { Boss } from '../entities/Boss.js';
@@ -7,7 +7,7 @@ import { GameConfig } from '../GameConfig.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 import { LevelProgression } from '../config/LevelProgression.js';
 
-export class Spawner {
+export class SpawnManager {
     constructor() {
         // Distance in pixels between each row. Adjust to fit your screen height perfectly.
         this.rowSpacing = 300;
@@ -136,11 +136,15 @@ export class Spawner {
     }
 
     spawnLoot(entityManager, x, y) {
-        const availableStats = ['DAMAGE', 'FIRE_RATE'];
-        const selectedStat = availableStats[Math.floor(Math.random() * availableStats.length)];
-        const statValue = selectedStat === 'DAMAGE' ? 1 : 50;
+        // [MODIFIED] Draw from the dynamic upgrade keys in GameConfig
+        const upgradeKeys = Object.keys(GameConfig.UPGRADES);
+        const selectedKey = upgradeKeys[Math.floor(Math.random() * upgradeKeys.length)];
+        
+        // Default to Tier 0 (index 0) for standard mob loot. 
+        // You can change this later to drop higher tiers from tougher enemies.
+        const tierIndex = 0; 
 
-        entityManager.addEntity(new Collectible(x, y, entityManager.assets.getImage('props'), selectedStat, statValue));
+        entityManager.addEntity(new Collectible(x, y, entityManager.assets.getImage('props'), selectedKey, tierIndex));
     }
 
     /**
