@@ -30,5 +30,5 @@ export const AudioManifest = [
     { key: 'button_interact', path: 'assets/audio/button_click_sfx_1.mp3' },
     { key: 'game_start', path: 'assets/audio/game_start_sfx.mp3' },
     { key: 'impact', path: 'assets/audio/impact_sfx_1.ogg' },
-
+    { key: 'form_change', path: 'assets/audio/form_change.mp3'},
 ];

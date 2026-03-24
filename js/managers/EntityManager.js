@@ -77,10 +77,15 @@ export class EntityManager {
             if (enemy.markForDeletion || enemy.hp <= 0) return;
 
             if (checkAABB(player, enemy)) {
-                // Instantly kill the enemy
+                // 1. Sauvegarder les dégâts (PV restants de l'ennemi) AVANT de le tuer
+                const rammingDamage = enemy.hp;
+                
+                // 2. Mettre à 0 pour que processDeaths() déclenche l'explosion et le loot
                 enemy.hp = 0; 
                 
-                player.stats.hp -= enemy.hp; // (Bug noted here in your original code: if enemy.hp is 0, player takes 0 damage. You might want to use enemy.stats.maxHp or a fixed ramming damage)
+                // 3. Appliquer les dégâts au joueur
+                player.stats.hp -= rammingDamage; 
+                
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'player_hit', volume: 0.8 });
 
                 if (player.stats.hp <= 0) {

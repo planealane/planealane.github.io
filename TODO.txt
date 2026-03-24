@@ -1,3 +1,9 @@
-Fix progress bar not matching bosses perfectly
+Fix progress bar not matching bosses perfectly done
 
-Fix being able to kill off screen
+Fix being able to kill off screen done
+
+Fix player is invincible after form change
+
+Fix supercollectible hitbox
+
+Refactor again already lol

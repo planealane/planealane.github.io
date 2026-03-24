@@ -54,6 +54,16 @@ export class Enemy extends SpriteEntity {
     }
 
     draw(ctx) {
+        drawAlgorithmicTrail(
+            ctx, 
+            this.x - this.width / 2, 
+            this.y - this.height / 2, 
+            this.width, 
+            this.height, 
+            performance.now(), 
+            false
+        );
+
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);

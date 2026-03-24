@@ -15,28 +15,61 @@ export class Player extends SpriteEntity {
 
         this.currentVariant = safeIndex;
 
-        // Les stats de combat (dégâts, cadence) sont maintenant gérées par les Armes.
-        // On ne garde ici que ce qui est propre à la "coque" du joueur.
         this.stats = {
             hp: GameConfig.PLAYER_BASE_HP,
-            maxHp: GameConfig.PLAYER_BASE_HP // Conservé au cas où, mais hp peut le dépasser (uncap)
+            maxHp: GameConfig.PLAYER_BASE_HP
         };
-        
-        // Initialisation du système d'armement modulaire
+
+        // Weapon system initialization
         this.weapons = [
             new PrimaryWeapon(GameConfig.WEAPONS.PRIMARY),
             new SecondaryWeapon(GameConfig.WEAPONS.SECONDARY)
         ];
-        
+
         // Physics for visual banking (tilting) when moving horizontally
         this.targetAngle = 0;
         this.maxTilt = 0.35;
         this.tiltResponsiveness = 0.15;
+
+        // Transformation state
+        this.isTransforming = false;
+        this.transformDuration = 0;
+        this.transformTimer = 0;
+        this.blinkAccumulator = 0;
+        this.previousVariant = 0;
+        this.targetVariant = 0;
     }
 
-    setVariant(newVariantIndex) {
-        this.currentVariant = newVariantIndex % ShipsAtlas.PLAYER_VARIANTS;
-        this.frame = ShipsAtlas.getFrame(this.currentVariant, this.image.width, this.image.height);
+    /**
+         * Triggers the transformation sequence and plays the sound ONCE.
+         */
+    setVariant(variantIndex) {
+        const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
+
+        // Prevent triggering if already in target form or currently transforming
+        if (this.currentVariant === safeIndex && !this.isTransforming) return;
+
+        this.previousVariant = this.currentVariant || 0;
+        this.targetVariant = safeIndex;
+
+        this.isTransforming = true;
+        this.transformDuration = 1500;
+        this.transformTimer = this.transformDuration;
+        this.blinkAccumulator = 0;
+
+        // Fire and forget: guarantees the sound plays exactly once per form change
+        gameEvents.emit(EVENTS.PLAY_SFX, { id: 'form_change', volume: 1.0 });
+    }
+
+    /**
+     * Updates the sprite frame based on the Atlas.
+     * Centralized to keep frame logic DRY.
+     */
+    _updateFrame(variantIndex) {
+        if (this.image) {
+            const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
+            this.frame = ShipsAtlas.getFrame(safeIndex, this.image.width, this.image.height);
+        }
     }
 
     update(dt, pointerX, entityManager) {
@@ -56,33 +89,60 @@ export class Player extends SpriteEntity {
         this.angle += (this.targetAngle - this.angle) * this.tiltResponsiveness;
         this.x = Math.max(minX, Math.min(maxX, pointerX));
 
-        // 4. Handle Combat (Shooting)
-        // Les armes s'occupent de leur propre cooldown et spawn
+        // 4. Handle transformation animation (Visual only)
+        if (this.isTransforming) {
+            this.transformTimer -= dt;
+            this.blinkAccumulator += dt;
+
+            const progress = 1 - (this.transformTimer / this.transformDuration);
+            const blinkRate = Math.max(50, 150 - (progress * 100));
+
+            if (this.transformTimer <= 0) {
+                // Sequence complete, lock to target
+                this.isTransforming = false;
+                this.currentVariant = this.targetVariant;
+                this._updateFrame(this.currentVariant);
+            } else if (this.blinkAccumulator >= blinkRate) {
+                // Swap forms for the blinking effect
+                this.blinkAccumulator = 0;
+                this.currentVariant = (this.currentVariant === this.targetVariant) ? this.previousVariant : this.targetVariant;
+                this._updateFrame(this.currentVariant);
+            }
+        }
+
+        // 5. Handle Combat (Shooting)
         this.weapons.forEach(weapon => weapon.update(dt, this, entityManager));
     }
 
-    /**
-     * Utilitaire pour récupérer l'instance d'une arme précise
-     */
-    getWeapon(weaponClass) {
-        return this.weapons.find(w => w instanceof weaponClass);
-    }
-
     draw(ctx) {
+        drawAlgorithmicTrail(
+            ctx,
+            this.x - this.width / 2,
+            this.y - this.height / 2,
+            this.width,
+            this.height,
+            performance.now(),
+            false
+        );
+
         super.draw(ctx);
         const textY = this.y + (this.height / 2) + 25;
         drawFloatingText(ctx, `${Math.floor(this.stats.hp)}`, this.x, textY, '#2ecc71');
     }
 
     /**
-     * Updates the player's visual sprite based on the variant index.
-     * @param {number} variantIndex - The index from ShipsAtlas (e.g., 0 to 11)
+     * Utility to retrieve a specific weapon instance
      */
-    setVariant(variantIndex) {
-        this.currentVariant = variantIndex;
-        if (this.image) {
-            const safeIndex = this.currentVariant % ShipsAtlas.PLAYER_VARIANTS;
-            this.frame = ShipsAtlas.getFrame(safeIndex, this.image.width, this.image.height);
-        }
+    getWeapon(weaponClass) {
+        return this.weapons.find(w => w instanceof weaponClass);
+    }
+
+    // Direct accessors to maintain compatibility with UpgradesConfig.js logic
+    get primaryWeapon() {
+        return this.getWeapon(PrimaryWeapon);
+    }
+
+    get secondaryWeapon() {
+        return this.getWeapon(SecondaryWeapon);
     }
 }

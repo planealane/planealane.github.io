@@ -4,7 +4,7 @@ import { Button } from '../ui/Button.js';
 import { UIConfig } from '../UIConfig.js';
 import { GameConfig } from '../GameConfig.js';
 import { ShipsAtlas } from '../utils/Atlas.js';
-// Optional: import { gameEvents, EVENTS } from '../core/EventBus.js'; // To play a sound on takeoff
+import { drawAlgorithmicTrail } from '../utils/VFXUtils.js';
 
 export class StartState extends State {
     
@@ -47,7 +47,7 @@ export class StartState extends State {
                 width: playWidth, 
                 height: playHeight,
                 fontSize: GameConfig.FONT_SIZE_MD * 1.5,
-                sfxId: 'game_start' // [NOUVEAU] On écrase le son par défaut
+                sfxId: 'game_start'
             }
         );
 
@@ -58,9 +58,6 @@ export class StartState extends State {
     startTransition() {
         this.isTransitioning = true;
         this.transitionStartTime = performance.now();
-        
-        // If you have a plane accelerating sound, now is the time to emit it!
-        // gameEvents.emit(EVENTS.PLAY_SFX, { id: 'engine-rev', volume: 0.8 });
     }
 
     // ============================================================================
@@ -87,7 +84,6 @@ export class StartState extends State {
         });
 
         if (pointer.isDown && !this.wasPointerDown) {
-            // Clone the array to avoid bugs if a button modifies the list during the loop
             [...this.buttons].forEach(btn => btn.handleClick(pointer.x, pointer.y));
         }
         
@@ -111,25 +107,23 @@ export class StartState extends State {
             const elapsed = time - this.transitionStartTime;
             const progress = Math.min(1, elapsed / anims.START_TRANSITION_MS);
 
-            // 1. Title moves up and Buttons move down (0% to 40%)
+            // 1. Title moves up and Buttons move down
             const UIProgress = Math.min(1, progress / 0.40);
-            const UIEase = UIProgress * UIProgress; // Exponential acceleration (EaseIn)
-            titleOffsetY = -UIEase * (height * 0.5); // Moves up off-screen
-            buttonsOffsetY = UIEase * (height * 0.5); // Moves down off-screen
+            const UIEase = UIProgress * UIProgress; 
+            titleOffsetY = -UIEase * (height * 0.5); 
+            buttonsOffsetY = UIEase * (height * 0.5); 
 
-            // 2. Plane builds momentum (0% to 40%) then shoots up (40% to 100%)
+            // 2. Plane builds momentum then shoots up
             if (progress < 0.40) {
-                // Anticipation (Squat) downwards
                 const squatProgress = progress / 0.40;
-                planeOffsetY = Math.sin(squatProgress * Math.PI) * 60; // Dips by 60 pixels
+                planeOffsetY = Math.sin(squatProgress * Math.PI) * 60; 
             } else {
-                // Shoots upwards
                 const takeoffProgress = (progress - 0.40) / 0.60;
-                const takeoffEase = Math.pow(takeoffProgress, 3); // Starts slowly, finishes very fast
-                planeOffsetY = -takeoffEase * (height * 1.2); // Dashes off-screen
+                const takeoffEase = Math.pow(takeoffProgress, 3); 
+                planeOffsetY = -takeoffEase * (height * 1.2); 
             }
 
-            // 3. Fade to black at the end (60% to 100%)
+            // 3. Fade to black
             if (progress > 0.60) {
                 fadeAlpha = (progress - 0.60) / 0.40;
             }
@@ -145,7 +139,7 @@ export class StartState extends State {
             ctx.fillRect(0, 0, width, height);
         }
 
-        // 2. Title (With its offset)
+        // 2. Title
         let staticTitleBottomY = height * layout.TITLE_Y_PERCENTAGE; 
         if (this.titleImage) {
             const maxWidth = width * 0.8;
@@ -155,40 +149,24 @@ export class StartState extends State {
             
             const titleX = width / 2 - scaledWidth / 2;
             const baseBreathY = Math.sin(time * anims.TITLE_BREATH_SPEED) * anims.TITLE_BREATH_AMPLITUDE;
-            
-            // Add the transition offset
             const titleY = staticTitleBottomY + baseBreathY + titleOffsetY;
             
             ctx.drawImage(this.titleImage, titleX, titleY, scaledWidth, scaledHeight);
             staticTitleBottomY += scaledHeight; 
         }
 
-        // 3. Plane and particles (With offset)
+        // 3. Plane and particles
         if (this.playerImage) {
             const safeIndex = GameConfig.PLAYER_BASE_VARIANT % ShipsAtlas.PLAYER_VARIANTS;
             const frame = ShipsAtlas.getFrame(safeIndex, this.playerImage.width, this.playerImage.height);
             const displaySize = GameConfig.TITLE_PLAYER_SIZE; 
             
             const spriteX = width / 2 - displaySize / 2;
-            // Add the transition offset
             const spriteY = staticTitleBottomY + (height * layout.PLAYER_Y_OFFSET_PERCENTAGE) + planeOffsetY; 
 
-            const trailCount = anims.EXHAUST_PARTICLE_COUNT;
-            for (let i = 0; i < trailCount; i++) {
-                const t = (time + i * (1000 / trailCount)) % 1000;
-                const p = t / 1000; 
-
-                // If transitioning, lengthen the trail to simulate speed
-                const speedMultiplier = this.isTransitioning ? 3 : 1;
-                
-                const size = anims.EXHAUST_BASE_SIZE * (1 - p); 
-                const alpha = 1 - Math.pow(p, 2); 
-                const pX = spriteX + displaySize / 2 - size / 2;
-                const pY = spriteY + displaySize * 0.85 + (p * anims.EXHAUST_MAX_DROP * speedMultiplier); 
-
-                ctx.fillStyle = `rgba(200, 200, 200, ${alpha})`;
-                ctx.fillRect(pX, pY, size, size);
-            }
+            // Call the shared VFX utility, passing the speed multiplier
+            const speedMultiplier = this.isTransitioning ? 3 : 1;
+            drawAlgorithmicTrail(ctx, spriteX, spriteY, displaySize, displaySize, time, false, speedMultiplier);
             
             ctx.drawImage(
                 this.playerImage,
@@ -197,13 +175,12 @@ export class StartState extends State {
             );
         }
 
-        // 4. Buttons (With offset)
+        // 4. Buttons
         this.buttons.forEach(btn => {
-            // Save the actual state for drawing
             const originalY = btn.baseY;
             btn.baseY += buttonsOffsetY;
             btn.draw(ctx);
-            btn.baseY = originalY; // Restore
+            btn.baseY = originalY; 
         });
 
         // 5. Overlay fade to black

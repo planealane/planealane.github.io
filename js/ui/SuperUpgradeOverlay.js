@@ -26,33 +26,30 @@ export class SuperUpgradeOverlay {
         // Fetch 3 unique upgrades from the config
         this.choices = UpgradesConfig.getRandomSuperUpgrades(3);
         this.buildLayout();
+        
+        // Record start time for the safety click delay
+        this.startTime = performance.now();
     }
 
-buildLayout() {
+    buildLayout() {
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
         
-        // 1. Définition des dimensions des cartes
-        // On conserve la largeur relative
+        // 1. Define card dimensions
         const cardWidth = width * 0.28;
+        const cardHeight = height * 0.60; 
         
-        // [MODIF] On agrandit la hauteur : on passe de 0.40 (40%) à 0.60 (60%)
-        // Cela utilise l'espace disponible en bas sans surcharger l'écran.
-        const cardHeight = height * 0.60;
-        
-        // Espacement horizontal entre les cartes (inchangé)
+        // Horizontal spacing between cards
         const spacing = width * 0.04;
         
-        // 2. Calcul du centrage horizontal
+        // 2. Calculate horizontal centering
         const totalWidth = (cardWidth * 3) + (spacing * 2);
         const startX = (width - totalWidth) / 2;
         
-        // 3. Calcul du centrage vertical
-        // Comme la hauteur de la carte est plus grande, le point d'ancrage Y (startY)
-        // sera automatiquement plus haut dans l'écran pour garder l'ensemble centré.
+        // 3. Calculate vertical centering
         const startY = (height - cardHeight) / 2;
 
-        // 4. Construction des données de mise en page pour chaque carte
+        // 4. Build layout data for each card
         this.cards = this.choices.map((choice, index) => {
             return {
                 choice: choice,
@@ -80,7 +77,7 @@ buildLayout() {
             this.playerRef.frame = ShipsAtlas.getFrame(selected.playerVariantIndex, img.width, img.height);
         }
 
-        // 3. Close and resume
+        // 3. Close overlay and resume gameplay
         this.isActive = false;
         this.onComplete();
     }
@@ -88,26 +85,35 @@ buildLayout() {
     update(dt, pointer) {
         if (!this.isActive) return;
 
-        // 1. TEST DE VIE : On spamme la console pour voir si ça tourne et si le clic réagit
-        console.log(`[Overlay Update] Actif | elapsed: ${Math.round(performance.now() - this.startTime)}ms | pointer.isDown: ${pointer.isDown}`);
-
         const elapsed = performance.now() - this.startTime;
+        
+        // 1. Safety delay (500ms) to prevent accidental clicks upon opening
         if (elapsed < 500) {
             this.wasPointerDown = pointer.isDown;
             return;
         }
 
+        // 2. Handle clicks
         if (pointer.isDown && !this.wasPointerDown) {
-            console.log(`🔥 CLIC DÉTECTÉ à X:${pointer.x}, Y:${pointer.y} 🔥`);
-
             for (let i = 0; i < this.cards.length; i++) {
                 const card = this.cards[i];
                 if (pointer.x >= card.x && pointer.x <= card.x + card.width &&
                     pointer.y >= card.y && pointer.y <= card.y + card.height) {
 
-                    console.log(`✅ CARTE ${i} VALIDÉE`);
                     this.selectUpgrade(i);
                     return;
+                }
+            }
+        }
+
+        // 3. Update hover state
+        this.hoveredIndex = -1;
+        if (pointer.x !== undefined && pointer.y !== undefined) {
+            for (let i = 0; i < this.cards.length; i++) {
+                const card = this.cards[i];
+                if (pointer.x >= card.x && pointer.x <= card.x + card.width &&
+                    pointer.y >= card.y && pointer.y <= card.y + card.height) {
+                    this.hoveredIndex = i;
                 }
             }
         }
