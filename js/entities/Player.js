@@ -17,9 +17,25 @@ export class Player extends SpriteEntity {
 
         this.currentVariant = safeIndex;
 
+        // ==========================================
+        // PLAYER STATS & MODIFIERS
+        // Prepared for UpgradesConfig multipliers
+        // ==========================================
         this.stats = {
             hp: GameConfig.PLAYER_BASE_HP,
-            maxHp: GameConfig.PLAYER_BASE_HP
+            maxHp: GameConfig.PLAYER_BASE_HP,
+
+            // Core multipliers from Archetypes
+            damageMultiplier: 1.0,
+            hasteMultiplier: 0.0,
+
+            // Flat accumulated bonuses from Gates
+            flatPrimaryDamage: 0,
+            flatHaste: 0,
+            flatSecondaryHaste: 0,
+
+            // Special mechanics
+            droneCount: 0
         };
 
         // Weapon system initialization
@@ -27,7 +43,6 @@ export class Player extends SpriteEntity {
             new PrimaryWeapon(WeaponConfig.BASE.PRIMARY),
             new SecondaryWeapon(WeaponConfig.BASE.SECONDARY)
         ];
-
         // Physics for visual banking (tilting) when moving horizontally
         this.targetAngle = 0;
         this.maxTilt = 0.35;

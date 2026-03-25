@@ -1,38 +1,31 @@
 // js/entities/SuperCollectible.js
 import { GameConfig } from '../GameConfig.js';
-import { SpriteEntity } from './Entity.js';
 import { Player } from './Player.js';
+import { BaseItem } from './BaseItem.js';
 
-export class SuperCollectible extends SpriteEntity {
+export class SuperCollectible extends BaseItem {
     constructor(x, y) {
-        // Size is slightly larger than standard drops for visual importance
         const size = GameConfig.SHIP_SIZE * 0.8;
-        super(x, y, size, size, null, null, 0, GameConfig.Z_INDEX.COLLECTIBLE + 1);
+        // image and frame are null because this entity uses procedural rendering
+        super(x, y, size, size, null, null, GameConfig.Z_INDEX.COLLECTIBLE + 1);
         
-        this.baseSpeed = GameConfig.SCROLL_SPEED;
         this.magnetSpeed = 0.8; 
-        this.aliveTime = 0;
         
-        // Initial velocity (slight pop outward before falling)
+        // Initial outward pop velocity
         this.vx = (Math.random() - 0.5) * 0.2;
         this.vy = -0.2; 
 
-        // [NEW] Array to store the trail particles
         this.particles = [];
-        
-        // The logical radius used in the pixel-art loop (matches your demo)
         this.logicalRadius = 10;
-        // The scale factor to stretch the 10px radius to the actual physical hitbox size
         this.renderScale = (this.width / 2) / this.logicalRadius;
     }
 
     update(dt, playerX, entityManager) {
-        this.aliveTime += dt;
+        super.update(dt); // Handle aliveTime, pickupDelay, boundaries
 
         // 1. Particle Trail Generation
         const trailHue = ((this.y / this.renderScale) * 4 + this.aliveTime * 0.05) % 360;
         
-        // Spawn 3 particles per frame (adjusted for dt delta)
         for (let i = 0; i < 3; i++) {
             this.particles.push({
                 x: this.x + (Math.random() - 0.5) * (this.width * 0.5),
@@ -46,18 +39,15 @@ export class SuperCollectible extends SpriteEntity {
         // Update existing particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
-            p.life -= 0.015 * (dt / 16); // Normalize fading to 60fps equivalent
+            p.life -= 0.015 * (dt / 16); 
             p.y += p.vy * dt;
             
-            if (p.life <= 0) {
-                this.particles.splice(i, 1);
-            }
+            if (p.life <= 0) this.particles.splice(i, 1);
         }
 
-        // 2. Find the player to track
+        // 2. Magnetic steering logic
         const player = entityManager.entities.find(e => e instanceof Player);
 
-        // 3. Magnetic steering logic (activates after a short delay)
         if (player && !player.markForDeletion && this.aliveTime > 500) {
             const dx = player.x - this.x;
             const dy = player.y - this.y;
@@ -66,27 +56,18 @@ export class SuperCollectible extends SpriteEntity {
             if (distance > 0) {
                 const dirX = dx / distance;
                 const dirY = dy / distance;
-                
                 this.vx += (dirX * this.magnetSpeed - this.vx) * 0.05 * dt;
                 this.vy += (dirY * this.magnetSpeed - this.vy) * 0.05 * dt;
             }
         } else {
-            // Standard falling behavior
-            this.vy += 0.002 * dt; // Gravity
+            // Gravity fallback
+            this.vy += 0.002 * dt; 
             if (this.vy > this.baseSpeed * 2) this.vy = this.baseSpeed * 2;
         }
 
-        // 4. Apply velocity
         this.x += this.vx * dt;
         this.y += this.vy * dt;
-
-        // 5. Boundary check
-        if (this.y > GameConfig.GAME_HEIGHT + 200 || 
-            this.x < -200 || this.x > GameConfig.GAME_WIDTH + 200) {
-            this.markForDeletion = true;
-        }
     }
-
     draw(ctx) {
         // ==========================================
         // 1. DRAW PARTICLES (WORLD SPACE)

@@ -73,29 +73,23 @@ export class PlayState extends State {
 
     onPlayerDead() {
         if (this.phase === 'GAMEOVER_SEQUENCE') return;
-
         this.phase = 'GAMEOVER_SEQUENCE';
-        this.gameManager.timeScale = 0.25; // Initial slow-mo hit
+        this.gameManager.timeScale = 0.25;
         this.gameOverOverlay.start();
     }
 
     onSuperLootPickup(data) {
         if (this.phase !== 'PLAYING') return;
-
         this.phase = 'UPGRADE_SEQUENCE';
 
-        // ON NE TOUCHE PLUS AU timeScale ICI !
-        // On lance juste l'overlay.
-        this.superUpgradeOverlay.start(data.player);
+        // [MODIFIÉ] On transmet les données (player et wave) à l'overlay
+        // L'overlay utilisera 'data.wave' pour savoir s'il affiche la Phase 1 ou 2
+        this.superUpgradeOverlay.start(data);
     }
 
     resumeGameplay() {
         this.phase = 'PLAYING';
-        // Plus besoin de restaurer le timeScale non plus
     }
-    // ============================================================================
-    // LOGIC & RENDERING
-    // ============================================================================
 
     // ============================================================================
     // LOGIC & RENDERING
@@ -104,31 +98,30 @@ export class PlayState extends State {
     update(dt, pointer) {
         if (dt > 100) return;
 
+        // Debug cheat code
         if (this.gameManager.inputManager.isKeyDown('c')) {
             const player = this.gameManager.entityManager.entities.find(ent => ent.constructor.name === 'Player');
             if (player) player.setVariant(player.currentVariant + 1);
         }
 
         let shouldUpdateWorld = false;
-        let currentScaledDt = 0; // Default to 0
+        let currentScaledDt = 0;
 
-        // 2. Phase Management
+        // Phase Management
         if (this.phase === 'PLAYING') {
             shouldUpdateWorld = true;
             currentScaledDt = dt * this.gameManager.timeScale;
         }
         else if (this.phase === 'GAMEOVER_SEQUENCE') {
             const elapsed = performance.now() - this.gameOverOverlay.startTime;
-
             if (elapsed <= 2000) {
                 this.gameManager.timeScale = 0.25;
                 shouldUpdateWorld = true;
                 currentScaledDt = dt * this.gameManager.timeScale;
             } else {
                 shouldUpdateWorld = false;
-                currentScaledDt = 0; // Explicitly freeze time
+                currentScaledDt = 0;
             }
-
             this.gameOverOverlay.update(dt, pointer);
         }
         else if (this.phase === 'UPGRADE_SEQUENCE') {
@@ -137,10 +130,11 @@ export class PlayState extends State {
             this.superUpgradeOverlay.update(dt, pointer);
         }
 
-        // 3. World & Entities Execution
+        // World & Entities Execution
         if (shouldUpdateWorld) {
-            this.gameManager.entityManager.update(currentScaledDt, pointer.x);
+            const currentWave = this.spawner ? this.spawner.blocksSpawned : 1;
 
+            this.gameManager.entityManager.update(currentScaledDt, pointer.x, currentWave);
             if (this.phase === 'PLAYING' && this.spawner) {
                 this.spawner.update(currentScaledDt, this.gameManager.entityManager);
                 const ratio = this.spawner.getProgressRatio();
@@ -148,9 +142,8 @@ export class PlayState extends State {
             }
         }
 
-        // 4. VFX Execution (Outside the freeze block)
+        // VFX Execution
         if (this.vfxManager) {
-            // Passes 0 for particles (they freeze), but raw dt for camera shake (it dissipates)
             this.vfxManager.update(currentScaledDt, dt);
         }
 

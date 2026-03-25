@@ -6,7 +6,7 @@ import { Collectible } from '../entities/Collectible.js';
 import { GameConfig } from '../GameConfig.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 import { LevelProgression } from '../config/LevelProgression.js';
-import { WeaponConfig } from '../config/WeaponConfig.js';
+import { UpgradesConfig } from '../config/UpgradesConfig.js';
 
 export class SpawnManager {
     constructor() {
@@ -142,13 +142,12 @@ export class SpawnManager {
         this.spawnLoot(payload.entityManager, payload.x, payload.y);
     }
 
-    spawnLoot(entityManager, x, y) {
-        // [MODIFIED] Draw from the dynamic upgrade keys in GameConfig
-        const upgradeKeys = Object.keys(WeaponConfig.UPGRADES);
+spawnLoot(entityManager, x, y) {
+        // [MODIFIÉ] On pioche dans le nouveau dictionnaire des portails
+        const upgradeKeys = Object.keys(UpgradesConfig.PORTALS);
         const selectedKey = upgradeKeys[Math.floor(Math.random() * upgradeKeys.length)];
         
         // Default to Tier 0 (index 0) for standard mob loot. 
-        // You can change this later to drop higher tiers from tougher enemies.
         const tierIndex = 0; 
 
         entityManager.addEntity(new Collectible(x, y, entityManager.assets.getImage('props'), selectedKey, tierIndex));

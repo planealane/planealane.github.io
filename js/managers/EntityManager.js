@@ -1,4 +1,5 @@
 // js/EntityManager.js
+
 import { Player } from '../entities/Player.js';
 import { Enemy } from '../entities/Enemy.js';
 import { Projectile } from '../entities/Projectile.js';
@@ -8,8 +9,8 @@ import { Collectible } from '../entities/Collectible.js';
 import { checkAABB, checkExtendedAABB } from '../core/Physics.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 import { Boss } from '../entities/Boss.js';
-import { UpgradeManager } from '../managers/UpgradeManager.js';
 import { SuperCollectible } from '../entities/SuperCollectible.js';
+import { UpgradesConfig } from '../config/UpgradesConfig.js';
 
 export class EntityManager {
     constructor(assets) {
@@ -21,10 +22,16 @@ export class EntityManager {
         this.entities.push(entity);
     }
 
-    update(dt, playerX) {
+    /**
+     * Updates all entities and processes interactions.
+     * @param {number} dt - Delta time
+     * @param {number} playerX - Current pointer/player X position
+     * @param {number} currentWave - Current game wave for dynamic scaling
+     */
+    update(dt, playerX, currentWave = 1) {
         this.entities.forEach(entity => entity.update(dt, playerX, this));
-        this.handleCollisions();
-        this.processDeaths(); // [NEW] Centralized death logic
+        this.handleCollisions(currentWave);
+        this.processDeaths(); 
         this.entities = this.entities.filter(entity => !entity.markForDeletion);
     }
 
@@ -37,23 +44,23 @@ export class EntityManager {
     // COLLISION DETECTION
     // ============================================================================
 
-    handleCollisions() {
+    handleCollisions(currentWave) {
         const projectiles = this.entities.filter(e => e instanceof Projectile || e instanceof HomingProjectile);
         const enemies = this.entities.filter(e => e instanceof Enemy || e instanceof Boss);
         const collectibles = this.entities.filter(e => e instanceof Collectible);
         const gates = this.entities.filter(e => e instanceof Gate);
-        const superCollectibles = this.entities.filter(e => e.constructor.name === 'SuperCollectible');
+        const superCollectibles = this.entities.filter(e => e instanceof SuperCollectible);
         const player = this.entities.find(e => e instanceof Player);
 
         if (!player) return;
 
-        // A. Projectiles vs Enemies (Only apply damage)
+        // A. Projectiles vs Enemies (Damage application)
         projectiles.forEach(projectile => {
             if (projectile.markForDeletion) return;
 
             enemies.forEach(enemy => {
-                if (enemy.markForDeletion || enemy.hp <= 0) return; // Ignore already dead enemies
-                if (enemy.y < 0) return; // Invincibility frame
+                if (enemy.markForDeletion || enemy.hp <= 0) return; 
+                if (enemy.y < 0) return; // Invincibility frame while entering screen
 
                 if (checkAABB(projectile, enemy)) {
                     projectile.markForDeletion = true;
@@ -72,18 +79,18 @@ export class EntityManager {
             });
         });
 
-        // B. Enemies vs Player
+        // B. Enemies vs Player (Ramming damage)
         enemies.forEach(enemy => {
             if (enemy.markForDeletion || enemy.hp <= 0) return;
 
             if (checkAABB(player, enemy)) {
-                // 1. Sauvegarder les dégâts (PV restants de l'ennemi) AVANT de le tuer
+                // 1. Save remaining HP as ramming damage before killing the enemy
                 const rammingDamage = enemy.hp;
                 
-                // 2. Mettre à 0 pour que processDeaths() déclenche l'explosion et le loot
+                // 2. Set to 0 to trigger explosion and loot in processDeaths()
                 enemy.hp = 0; 
                 
-                // 3. Appliquer les dégâts au joueur
+                // 3. Apply damage to player
                 player.stats.hp -= rammingDamage; 
                 
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'player_hit', volume: 0.8 });
@@ -95,25 +102,36 @@ export class EntityManager {
             }
         });
 
-        // C. Player vs Collectibles
+        // C. Player vs Collectibles (Standard drops)
         collectibles.forEach(collectible => {
             if (collectible.markForDeletion || collectible.pickupDelay > 0) return;
 
             if (checkExtendedAABB(player, collectible, 60)) {
                 collectible.markForDeletion = true;
-                UpgradeManager.apply(player, collectible.type, 0);
+                
+                // Apply logic dynamically from centralized config
+                if (UpgradesConfig.LOGIC[collectible.type]) {
+                    UpgradesConfig.LOGIC[collectible.type](player, collectible.bonusValue, currentWave);
+                }
+                
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.7 });
             }
         });
 
-        // D. Player vs Gates
+        // D. Player vs Gates (Portal upgrades)
         gates.forEach(gate => {
             if (gate.markForDeletion) return;
 
             if (checkAABB(player, gate)) {
-                UpgradeManager.apply(player, gate.bonusType, gate.tierIndex || 0);
+                
+                // Apply logic dynamically from centralized config
+                if (UpgradesConfig.LOGIC[gate.bonusType]) {
+                    UpgradesConfig.LOGIC[gate.bonusType](player, gate.bonusValue, currentWave);
+                }
+
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.8 });
 
+                // Destroy adjacent gates on the same Y axis
                 gates.forEach(g => {
                     if (Math.abs(g.y - gate.y) < 20) {
                         g.markForDeletion = true;
@@ -122,18 +140,22 @@ export class EntityManager {
             }
         });
 
-        // E. Player vs Super Collectibles
+        // E. Player vs Super Collectibles (Boss drops)
         superCollectibles.forEach(superLoot => {
             if (superLoot.markForDeletion) return;
 
-            // Adding a small delay (1 second) before pickup is allowed
-            // This prevents instant pickup if the player is sitting right where the boss died
+            // Small delay to prevent instant pickup
             if (superLoot.aliveTime < 1000) return; 
 
             if (checkAABB(player, superLoot)) {
                 superLoot.markForDeletion = true;
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'super_bonus', volume: 1.0 });
-                gameEvents.emit(EVENTS.SUPER_LOOT_PICKUP, { player: player });
+                
+                // Pass currentWave to UI to determine which upgrade pool to draw from (Archetypes vs Enhancements)
+                gameEvents.emit(EVENTS.SUPER_LOOT_PICKUP, { 
+                    player: player,
+                    wave: currentWave
+                });
             }
         });
     }
@@ -148,18 +170,15 @@ export class EntityManager {
         enemies.forEach(enemy => {
             if (!enemy.markForDeletion && enemy.hp <= 0) {
                 
-                // 1. Mark for removal
                 enemy.markForDeletion = true;
                 
-                // 2. Audio
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'explosion', volume: 0.6 });
 
-                // 3. Loot
+                // Spawn boss loot
                 if (enemy.isBoss) {
                     this.addEntity(new SuperCollectible(enemy.x, enemy.y));
                 }
 
-                // 4. Global Event
                 gameEvents.emit(EVENTS.ENEMY_DESTROYED, {
                     x: enemy.x,
                     y: enemy.y,
