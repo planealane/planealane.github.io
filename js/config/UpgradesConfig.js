@@ -1,79 +1,77 @@
 // js/config/UpgradesConfig.js
 
+// ==========================================
+// 1. LOCAL CONSTANTS (Safe internal scope)
+// ==========================================
+
 import { WeaponConfig } from './WeaponConfig.js';
 
+const COMPUTE = {
+    // Math.round ensures we always work with clean integers
+    damage: (base, flatBonus, multiplier) => {
+        return Math.max(1, Math.round((base + flatBonus) * multiplier));
+    },
+    cooldown: (base, haste) => {
+        return Math.max(50, Math.round(base / Math.max(0.1, 1 + haste)));
+    },
+    hpScale: (base, wave) => {
+        return Math.floor(base * (1 + (Math.max(1, wave) / 20)));
+    }
+};
+
+const LOGIC = {
+    'HULL_REPAIR': (player, value, currentWave = 1) => {
+        const scaledHp = COMPUTE.hpScale(value, currentWave);
+        player.stats.maxHp = (player.stats.maxHp || 100) + scaledHp;
+        player.stats.hp += scaledHp;
+    },
+    'PRIMARY_DAMAGE': (player, value) => {
+        player.stats.flatPrimaryDamage = (player.stats.flatPrimaryDamage || 0) + value;
+        const mult = player.stats.damageMultiplier || 1.0;
+        
+        player.primaryWeapon.stats.damage = COMPUTE.damage(WeaponConfig.BASE.PRIMARY.damage, player.stats.flatPrimaryDamage, mult);
+    },
+    'PRIMARY_FIRE_RATE': (player, value) => {
+        player.stats.flatHaste = (player.stats.flatHaste || 0) + value;
+        const mult = player.stats.hasteMultiplier || 0;
+
+        player.primaryWeapon.stats.cooldown = COMPUTE.cooldown(WeaponConfig.BASE.PRIMARY.cooldown, player.stats.flatHaste + mult);
+    },
+    'PRIMARY_BULLET_SPEED': (player, value) => {
+        player.primaryWeapon.stats.projectileSpeed += value;
+    },
+    'SECONDARY_DAMAGE': (player, value) => {
+        player.secondaryWeapon.stats.damage += value;
+    },
+    'SECONDARY_COUNT': (player, value) => {
+        player.secondaryWeapon.stats.count += value;
+    },
+    'SECONDARY_COOLDOWN': (player, value) => {
+        player.stats.flatSecondaryHaste = (player.stats.flatSecondaryHaste || 0) + value;
+        player.secondaryWeapon.stats.cooldown = COMPUTE.cooldown(WeaponConfig.BASE.SECONDARY.cooldown, player.stats.flatSecondaryHaste);
+    }
+};
+
+// ==========================================
+// 2. EXPORTED CONFIGURATION
+// ==========================================
+
 export const UpgradesConfig = {
-    // ==========================================
-    // DRY COMPUTATION HELPERS
-    // ==========================================
-    COMPUTE: {
-        damage: (base, flatBonus, multiplier) => Math.max(1, (base + flatBonus) * multiplier),
-        cooldown: (base, haste) => Math.max(50, base / Math.max(0.1, 1 + haste)),
-        hpScale: (base, wave) => Math.floor(base * (1 + (Math.max(1, wave) / 20)))
-    },
+    
+    // Re-expose for external modules (Gate.js, Collectible.js)
+    COMPUTE, 
+    LOGIC,
 
-    // ==========================================
-    // NORMAL UPGRADES (Portals)
-    // ==========================================
     PORTALS: {
-        PRIMARY_DAMAGE: [1, 2, 3],
+        PRIMARY_DAMAGE: [1, 2, 3],              
         PRIMARY_FIRE_RATE: [0.05, 0.10, 0.15],
-        PRIMARY_BULLET_SPEED: [1, 2, 3],
-        SECONDARY_DAMAGE: [1, 2, 3],
-        SECONDARY_COUNT: [1, 2, 3],
-        SECONDARY_COOLDOWN: [0.05, 0.10, 0.15],
-        HULL_REPAIR: [10, 20, 30]
+        PRIMARY_BULLET_SPEED: [1, 2, 3],        
+        SECONDARY_DAMAGE: [1, 2, 3],            
+        SECONDARY_COUNT: [1, 2, 3],             
+        SECONDARY_COOLDOWN: [0.05, 0.10, 0.15], 
+        HULL_REPAIR: [10, 20, 30] 
     },
 
-    // ==========================================
-    // PORTAL APPLICATION LOGIC
-    // ==========================================
-    LOGIC: {
-        'HULL_REPAIR': (player, value, currentWave = 1) => {
-            const scaledHp = UpgradesConfig.COMPUTE.hpScale(value, currentWave);
-            player.stats.maxHp = (player.stats.maxHp || 100) + scaledHp;
-            player.stats.hp += scaledHp;
-        },
-        'PRIMARY_DAMAGE': (player, value) => {
-            player.stats.flatPrimaryDamage = (player.stats.flatPrimaryDamage || 0) + value;
-            const mult = player.stats.damageMultiplier || 1.0;
-
-            player.primaryWeapon.stats.damage = UpgradesConfig.COMPUTE.damage(
-                WeaponConfig.BASE.PRIMARY.damage,
-                player.stats.flatPrimaryDamage,
-                mult
-            );
-        },
-        'PRIMARY_FIRE_RATE': (player, value) => {
-            player.stats.flatHaste = (player.stats.flatHaste || 0) + value;
-            const mult = player.stats.hasteMultiplier || 0;
-
-            player.primaryWeapon.stats.cooldown = UpgradesConfig.COMPUTE.cooldown(
-                WeaponConfig.BASE.PRIMARY.cooldown,
-                player.stats.flatHaste + mult
-            );
-        },
-        'PRIMARY_BULLET_SPEED': (player, value) => {
-            player.primaryWeapon.stats.projectileSpeed += value;
-        },
-        'SECONDARY_DAMAGE': (player, value) => {
-            player.secondaryWeapon.stats.damage += value;
-        },
-        'SECONDARY_COUNT': (player, value) => {
-            player.secondaryWeapon.stats.count += value;
-        },
-        'SECONDARY_COOLDOWN': (player, value) => {
-            player.stats.flatSecondaryHaste = (player.stats.flatSecondaryHaste || 0) + value;
-            player.secondaryWeapon.stats.cooldown = UpgradesConfig.COMPUTE.cooldown(
-                WeaponConfig.BASE.SECONDARY.cooldown,
-                player.stats.flatSecondaryHaste
-            );
-        }
-    },
-
-    // ==========================================
-    // BOSS UPGRADES (Archetypes & Enhancements)
-    // ==========================================
     ARCHETYPES: {
         'CLASS_GUNNER': {
             id: 'CLASS_GUNNER',
@@ -81,16 +79,17 @@ export const UpgradesConfig = {
             playerVariantIndex: 2,
             hasteBonus: 1.0,
             damagePenalty: -0.4,
-            getDescription: function () {
+            getDescription: function() {
                 return `Attack Speed: +${this.hasteBonus * 100}%\nDamage: ${this.damagePenalty * 100}%\n\n* Applies permanently to base stats and future upgrades.`;
             },
             onApply: (player) => {
                 player.stats.hasteMultiplier = (player.stats.hasteMultiplier || 0) + 1.0;
                 player.stats.damageMultiplier = (player.stats.damageMultiplier || 1.0) - 0.4;
-
+                
                 if (player.primaryWeapon) {
-                    player.primaryWeapon.stats.cooldown = UpgradesConfig.COMPUTE.cooldown(WeaponConfig.BASE.PRIMARY.cooldown, (player.stats.flatHaste || 0) + player.stats.hasteMultiplier);
-                    player.primaryWeapon.stats.damage = UpgradesConfig.COMPUTE.damage(WeaponConfig.BASE.PRIMARY.damage, player.stats.flatPrimaryDamage || 0, player.stats.damageMultiplier);
+                    // Directly use local COMPUTE constant
+                    player.primaryWeapon.stats.cooldown = COMPUTE.cooldown(WeaponConfig.BASE.PRIMARY.cooldown, (player.stats.flatHaste || 0) + player.stats.hasteMultiplier);
+                    player.primaryWeapon.stats.damage = COMPUTE.damage(WeaponConfig.BASE.PRIMARY.damage, player.stats.flatPrimaryDamage || 0, player.stats.damageMultiplier);
                 }
             }
         },
@@ -100,16 +99,16 @@ export const UpgradesConfig = {
             playerVariantIndex: 3,
             damageBonus: 1.0,
             hastePenalty: -0.5,
-            getDescription: function () {
+            getDescription: function() {
                 return `Damage: +${this.damageBonus * 100}%\nAttack Speed: ${this.hastePenalty * 100}%\n\n* Applies permanently to base stats and future upgrades.`;
             },
             onApply: (player) => {
                 player.stats.damageMultiplier = (player.stats.damageMultiplier || 1.0) + 1.0;
                 player.stats.hasteMultiplier = (player.stats.hasteMultiplier || 0) - 0.5;
-
+                
                 if (player.primaryWeapon) {
-                    player.primaryWeapon.stats.damage = WeaponConfig.COMPUTE.damage(WeaponConfig.BASE.PRIMARY.damage, player.stats.flatPrimaryDamage || 0, player.stats.damageMultiplier);
-                    player.primaryWeapon.stats.cooldown = WeaponConfig.COMPUTE.cooldown(WeaponConfig.BASE.PRIMARY.cooldown, (player.stats.flatHaste || 0) + player.stats.hasteMultiplier);
+                    player.primaryWeapon.stats.damage = COMPUTE.damage(WeaponConfig.BASE.PRIMARY.damage, player.stats.flatPrimaryDamage || 0, player.stats.damageMultiplier);
+                    player.primaryWeapon.stats.cooldown = COMPUTE.cooldown(WeaponConfig.BASE.PRIMARY.cooldown, (player.stats.flatHaste || 0) + player.stats.hasteMultiplier);
                 }
             }
         },
@@ -119,15 +118,15 @@ export const UpgradesConfig = {
             playerVariantIndex: 4,
             projectileBonus: 2,
             damagePenalty: -0.3,
-            getDescription: function () {
+            getDescription: function() {
                 return `Fires ${this.projectileBonus} extra projectiles.\nDamage per projectile: ${this.damagePenalty * 100}%\n\n* Applies permanently to base stats and future upgrades.`;
             },
             onApply: (player) => {
                 player.stats.damageMultiplier = (player.stats.damageMultiplier || 1.0) - 0.3;
-
+                
                 if (player.primaryWeapon) {
                     player.primaryWeapon.stats.count = (player.primaryWeapon.stats.count || 1) + 2;
-                    player.primaryWeapon.stats.damage = WeaponConfig.COMPUTE.damage(WeaponConfig.BASE.PRIMARY.damage, player.stats.flatPrimaryDamage || 0, player.stats.damageMultiplier);
+                    player.primaryWeapon.stats.damage = COMPUTE.damage(WeaponConfig.BASE.PRIMARY.damage, player.stats.flatPrimaryDamage || 0, player.stats.damageMultiplier);
                 }
             }
         }
@@ -148,7 +147,7 @@ export const UpgradesConfig = {
                 return `+${this.damageBonus[tierIndex]} Primary Damage.`;
             },
             onApply: function (player, tierIndex = 0) {
-                UpgradesConfig.LOGIC.PRIMARY_DAMAGE(player, this.damageBonus[tierIndex]);
+                LOGIC.PRIMARY_DAMAGE(player, this.damageBonus[tierIndex]);
             }
         },
         'OVERCHARGE_HASTE': {
@@ -161,7 +160,7 @@ export const UpgradesConfig = {
                 return `+${Math.round(this.hasteBonus[tierIndex] * 100)}% Attack Speed.`;
             },
             onApply: function (player, tierIndex = 0) {
-                UpgradesConfig.LOGIC.PRIMARY_FIRE_RATE(player, this.hasteBonus[tierIndex]);
+                LOGIC.PRIMARY_FIRE_RATE(player, this.hasteBonus[tierIndex]);
             }
         },
         'HEAVY_ARMOR': {
@@ -175,7 +174,7 @@ export const UpgradesConfig = {
                 return `+${scaledHp} Max Hull Integrity.`;
             },
             onApply: function (player, tierIndex = 0, currentWave = 1) {
-                UpgradesConfig.LOGIC.HULL_REPAIR(player, this.baseHpBonus[tierIndex], currentWave);
+                LOGIC.HULL_REPAIR(player, this.baseHpBonus[tierIndex], currentWave);
             }
         },
         'ASSAULT_DRONE': {

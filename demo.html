@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Démo Juice - Cartes qui disparaissent</title>
+    <title>Démo Juice - Manga Tunnel avec Fondus</title>
     <style>
         body {
             margin: 0; background-color: #1a1a1a;
@@ -16,23 +16,34 @@
 <body>
 
     <div class="instructions">
-        Clique sur une carte : elle disparaît instantanément pour laisser place aux lignes de vitesse !
+        Survolez et cliquez sur une Upgrade pour l'effet Manga avec fondu !
     </div>
     <canvas id="gameCanvas"></canvas>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-canvas.width = 800; canvas.height = 600;
+canvas.width = 800;
+canvas.height = 600;
 
+// Machine d'état
 const STATES = { PLAYING: 0, TRANSITION: 1, MENU: 2, SELECTED: 3 };
 let currentState = STATES.PLAYING;
-let mouseX = 0, mouseY = 0, frameCount = 0;
-let particles = [], cards = [], speedLines = [];
-let selectionTimer = 0, selectedColor = "#fff";
+
+// Variables globales
+let mouseX = 0, mouseY = 0;
+let particles = [];
+let cards = [];
+let speedLines = [];
+let frameCount = 0;
+let selectionTimer = 0;
+let selectedColor = "#fff";
 
 const RAINBOW_COLORS = ['#ff4444', '#ffaa44', '#ffee44', '#44ff44', '#44aaff', '#aa44ff'];
 
+/**
+ * UTILITAIRE : Convertit Hex en RGB pour l'alpha
+ */
 function hexToRgb(hex) {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -41,37 +52,58 @@ function hexToRgb(hex) {
 }
 
 /**
- * CLASSE SPEED LINE
+ * CLASSE SPEED LINE (BORDURES + FONDU HAUT/BAS)
  */
 class SpeedLine {
     constructor(color) {
         this.colorRgb = hexToRgb(color);
         this.reset();
     }
+
     reset() {
         const margin = canvas.width * 0.2;
-        this.x = Math.random() < 0.5 ? Math.random() * margin : (canvas.width - margin) + (Math.random() * margin);
+        // Positionnement sur les 20% latéraux
+        if (Math.random() < 0.5) {
+            this.x = Math.random() * margin;
+        } else {
+            this.x = (canvas.width - margin) + (Math.random() * margin);
+        }
+
         this.y = -Math.random() * canvas.height;
         this.length = Math.random() * 300 + 100;
-        this.speed = Math.random() * 40 + 30;
+        this.speed = Math.random() * 45 + 35; // Très rapide
         this.width = Math.random() * 3 + 1;
     }
+
     update() {
         this.y += this.speed;
-        if (this.y > canvas.height) this.reset();
+        if (this.y > canvas.height) {
+            this.reset();
+        }
     }
-    draw(ctx, lineOpacity = 1) {
-        let fadeZone = 120;
-        let edgeAlpha = 1.0;
-        
-        if (this.y < fadeZone) edgeAlpha = this.y / fadeZone;
-        else if (this.y + this.length > canvas.height - fadeZone) edgeAlpha = (canvas.height - (this.y + this.length)) / fadeZone;
-        
-        edgeAlpha = Math.max(0, Math.min(1, edgeAlpha));
 
-        ctx.strokeStyle = `rgba(${this.colorRgb}, ${edgeAlpha * lineOpacity * 0.8})`;
+    draw(ctx, globalOpacity = 1) {
+        // --- CALCUL DU FONDU LOCAL (FADE IN / FADE OUT) ---
+        let fadeZone = 120; // Distance des bords pour le fondu
+        let lineAlpha = 1.0;
+
+        // Si la ligne est proche du haut
+        if (this.y < fadeZone) {
+            lineAlpha = this.y / fadeZone;
+        } 
+        // Si le bas de la ligne est proche du bas du canvas
+        else if (this.y + this.length > canvas.height - fadeZone) {
+            lineAlpha = (canvas.height - (this.y + this.length)) / fadeZone;
+        }
+
+        // Sécurité : on bloque l'alpha entre 0 et 1
+        lineAlpha = Math.max(0, Math.min(1, lineAlpha));
+
+        // Dessin final avec multiplication des opacités
+        const finalAlpha = lineAlpha * globalOpacity * 0.9;
+        ctx.strokeStyle = `rgba(${this.colorRgb}, ${finalAlpha})`;
         ctx.lineWidth = this.width;
-        ctx.lineCap = "round";
+        ctx.lineCap = "round"; // Pour un look plus lisse
         ctx.beginPath();
         ctx.moveTo(this.x, this.y);
         ctx.lineTo(this.x, this.y + this.length);
@@ -89,7 +121,8 @@ class PixelParticle {
         this.color = RAINBOW_COLORS[Math.floor(Math.random() * RAINBOW_COLORS.length)];
         this.vx = (Math.random() - 0.5) * 12;
         this.vy = (Math.random() - 0.5) * 12;
-        this.life = 1.0; this.decay = Math.random() * 0.02 + 0.01;
+        this.life = 1.0;
+        this.decay = Math.random() * 0.02 + 0.01;
     }
     update() { this.x += this.vx; this.y += this.vy; this.vy += 0.1; this.life -= this.decay; }
     draw(ctx) {
@@ -101,7 +134,7 @@ class PixelParticle {
 }
 
 /**
- * CLASSE CARD
+ * CLASSE CHOICE CARD
  */
 class ChoiceCard {
     constructor(id, label, tier) {
@@ -110,20 +143,26 @@ class ChoiceCard {
         this.targetX = (canvas.width / 2 - this.width / 2) + (id - 1) * this.spacing;
         this.targetY = canvas.height / 2 - this.height / 2;
         this.y = canvas.height + 100;
-        this.timer = 0; this.delay = id * 10;
+        this.timer = 0;
+        this.delay = id * 10;
         this.velY = 0; this.stiffness = 0.1; this.damping = 0.7;
         this.isHovered = false; this.scale = 1;
         this.color = (tier === 1) ? "#3498db" : (tier === 2) ? "#9b59b6" : "#f1c40f";
     }
+
     update(mX, mY) {
         if (this.timer < this.delay) { this.timer++; return; }
         let force = (this.targetY - this.y) * this.stiffness;
         this.velY += force; this.velY *= this.damping;
         this.y += this.velY;
-        this.isHovered = (mX > this.targetX && mX < this.targetX + this.width && mY > this.y && mY < this.y + this.height);
+
+        this.isHovered = (mX > this.targetX && mX < this.targetX + this.width &&
+                         mY > this.y && mY < this.y + this.height);
+        
         let targetScale = this.isHovered ? 1.05 : 1;
         this.scale += (targetScale - this.scale) * 0.2;
     }
+
     draw(ctx) {
         if (this.timer < this.delay) return;
         ctx.save();
@@ -152,17 +191,20 @@ class ChoiceCard {
 }
 
 function initMenu() {
-    cards = [new ChoiceCard(0, "VITESSE +", 1), new ChoiceCard(1, "DEGATS ++", 2), new ChoiceCard(2, "ULTIME", 3)];
+    cards = [
+        new ChoiceCard(0, "VITESSE +", 1),
+        new ChoiceCard(1, "DEGATS ++", 2),
+        new ChoiceCard(2, "ULTIME", 3)
+    ];
 }
 
 function initSpeedLines(color) {
     speedLines = [];
-    for(let i = 0; i < 60; i++) speedLines.push(new SpeedLine(color));
+    for(let i = 0; i < 65; i++) {
+        speedLines.push(new SpeedLine(color));
+    }
 }
 
-/**
- * BOUCLE PRINCIPALE
- */
 function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     frameCount++;
@@ -171,42 +213,51 @@ function loop() {
         let bounce = Math.sin(frameCount * 0.1) * 10;
         ctx.fillStyle = RAINBOW_COLORS[Math.floor(frameCount / 10) % RAINBOW_COLORS.length];
         ctx.fillRect(canvas.width/2 - 16, canvas.height/2 - 16 + bounce, 32, 32);
+        
     } else if (currentState === STATES.TRANSITION) {
-        particles.forEach((p, i) => { p.update(); p.draw(ctx); if (p.life <= 0) particles.splice(i, 1); });
+        particles.forEach((p, i) => {
+            p.update(); p.draw(ctx);
+            if (p.life <= 0) particles.splice(i, 1);
+        });
         if (particles.length < 5) { currentState = STATES.MENU; initMenu(); }
+
     } else if (currentState === STATES.MENU) {
-        // Fond sombre
         ctx.fillStyle = "rgba(0,0,0,0.8)";
         ctx.fillRect(0,0, canvas.width, canvas.height);
-        // Les cartes ne sont dessinées QUE dans cet état
-        cards.forEach(c => { c.update(mouseX, mouseY); c.draw(ctx); });
+        cards.forEach(c => {
+            c.update(mouseX, mouseY);
+            c.draw(ctx);
+        });
+
     } else if (currentState === STATES.SELECTED) {
-        
-        // --- RENDU DU BACKGROUND ---
-        // On met un fond noir total pour un meilleur contraste avec les lignes
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0,0, canvas.width, canvas.height);
-        
-        // NOTE : On ne boucle plus sur "cards.forEach(c => c.draw(ctx));" ici.
-        // Les cartes disparaissent donc immédiatement au clic.
-
-        // --- GESTION DU FONDU DES LIGNES ---
-        let fadeDuration = 50; 
-        let lineOpacity = 1;
-
-        if (selectionTimer < fadeDuration) {
-            lineOpacity = selectionTimer / fadeDuration; 
+        // --- GESTION DU FONDU GLOBAL DE SORTIE ---
+        let globalOpacity = 1;
+        if (selectionTimer < 20) {
+            globalOpacity = selectionTimer / 20;
         }
 
-        speedLines.forEach(line => { 
-            line.update(); 
-            line.draw(ctx, lineOpacity); 
+        // Fond
+        ctx.fillStyle = "#000";
+        ctx.globalAlpha = globalOpacity;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Flash couleur
+        ctx.fillStyle = selectedColor;
+        ctx.globalAlpha = globalOpacity * 0.15;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1;
+
+        // Mise à jour et dessin des lignes avec fondu individuel
+        speedLines.forEach(line => {
+            line.update();
+            line.draw(ctx, globalOpacity);
         });
 
         selectionTimer--;
         if (selectionTimer <= 0) {
             currentState = STATES.PLAYING;
-            cards = []; speedLines = [];
+            cards = [];
+            speedLines = [];
         }
     }
     requestAnimationFrame(loop);
@@ -225,7 +276,7 @@ canvas.addEventListener('mousedown', () => {
         const clickedCard = cards.find(c => c.isHovered);
         if(clickedCard) {
             selectedColor = clickedCard.color;
-            selectionTimer = 100; 
+            selectionTimer = 60; // 1 seconde d'effet environ
             initSpeedLines(clickedCard.color);
             currentState = STATES.SELECTED;
         }

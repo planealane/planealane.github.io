@@ -5,6 +5,7 @@ import { Player } from '../entities/Player.js';
 import { SpawnManager } from '../managers/SpawnManager.js';
 import { GameOverOverlay } from '../ui/GameOverOverlay.js';
 import { SuperUpgradeOverlay } from '../ui/SuperUpgradeOverlay.js';
+import { TutorialOverlay } from '../ui/TutorialOverlay.js'; // [NOUVEAU] Import du tuto
 import { VFXManager } from '../managers/VFXManager.js';
 import { ProgressUI } from '../ui/ProgressUI.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
@@ -28,12 +29,17 @@ export class PlayState extends State {
         }
 
         // 2. State configuration
-        this.phase = 'PLAYING'; // 'PLAYING' | 'GAMEOVER_SEQUENCE' | 'UPGRADE_SEQUENCE'
+        // [NOUVEAU] On démarre directement dans la séquence de tutoriel
+        this.phase = 'TUTORIAL_SEQUENCE';
         this.gameOverOverlay = new GameOverOverlay(this.gameManager);
 
-        // Initialize the Super Upgrade Overlay with a callback to resume the game
-        this.superUpgradeOverlay = new SuperUpgradeOverlay(this.gameManager, () => {
-            this.resumeGameplay();
+        // Initialize the Super Upgrade Overlay
+        this.superUpgradeOverlay = new SuperUpgradeOverlay(this.gameManager, (upgradeColor) => {
+            this.resumeGameplay(upgradeColor);
+        });
+
+        this.tutorialOverlay = new TutorialOverlay(this.gameManager, () => {
+            this.phase = 'PLAYING'; // Démarre la vraie partie quand on ferme le tuto
         });
 
         // 3. Initialize the new game world
@@ -56,18 +62,18 @@ export class PlayState extends State {
         this.onSuperLootPickup = this.onSuperLootPickup.bind(this);
         gameEvents.on(EVENTS.SUPER_LOOT_PICKUP, this.onSuperLootPickup);
 
-        // 7. --- NOUVEAU : Déclencher le fondu d'entrée ---
-        // On demande au VFXManager qu'on vient de créer de faire un fondu du noir (1.0) vers le transparent (0.0)
+        // 7. Déclencher le fondu d'entrée
         gameEvents.emit(EVENTS.SCREEN_FADE, {
-            duration: 600, // 600ms pour une transition douce
-            startAlpha: 1.0, // On commence tout noir
-            endAlpha: 0.0,   // On finit transparent
+            duration: 600,
+            startAlpha: 1.0,
+            endAlpha: 0.0,
             color: '#000000'
         });
+
+        this.tutorialStartTimer = 600;
     }
 
     exit() {
-        // Unbind to prevent zombie listeners if state is destroyed
         gameEvents.off(EVENTS.PLAYER_DEAD, this.onPlayerDead);
         gameEvents.off(EVENTS.SUPER_LOOT_PICKUP, this.onSuperLootPickup);
 
@@ -90,11 +96,16 @@ export class PlayState extends State {
     onSuperLootPickup(data) {
         if (this.phase !== 'PLAYING') return;
         this.phase = 'UPGRADE_SEQUENCE';
-
         this.superUpgradeOverlay.start(data);
     }
 
-    resumeGameplay() {
+    resumeGameplay(upgradeColor = '#ffffff') {
+        if (this.phase === 'UPGRADE_SEQUENCE') {
+            gameEvents.emit(EVENTS.SPEED_LINES, {
+                duration: 2500,
+                color: upgradeColor
+            });
+        }
         this.phase = 'PLAYING';
     }
 
@@ -105,7 +116,6 @@ export class PlayState extends State {
     update(dt, pointer) {
         if (dt > 100) return;
 
-        // Debug cheat code
         if (this.gameManager.inputManager.isKeyDown('c')) {
             const player = this.gameManager.entityManager.entities.find(ent => ent.constructor.name === 'Player');
             if (player) player.setVariant(player.currentVariant + 1);
@@ -136,7 +146,25 @@ export class PlayState extends State {
             currentScaledDt = 0;
             this.superUpgradeOverlay.update(dt, pointer);
         }
+        // Gestion de la phase de tutoriel
+        else if (this.phase === 'TUTORIAL_SEQUENCE') {
+            shouldUpdateWorld = false;
+            currentScaledDt = 0;
 
+            // 1. Gérer le délai avant l'affichage
+            if (this.tutorialStartTimer > 0) {
+                this.tutorialStartTimer -= dt;
+
+                // Quand le timer atteint 0, on lance enfin le tutoriel
+                if (this.tutorialStartTimer <= 0) {
+                    this.tutorialOverlay.start();
+                }
+            }
+            // 2. Mettre à jour le tutoriel s'il est actif
+            else {
+                this.tutorialOverlay.update(dt, pointer);
+            }
+        }
         // World & Entities Execution
         if (shouldUpdateWorld) {
             const currentWave = this.spawner ? this.spawner.blocksSpawned : 1;
@@ -149,7 +177,6 @@ export class PlayState extends State {
             }
         }
 
-        // VFX Execution
         if (this.vfxManager) {
             this.vfxManager.update(currentScaledDt, dt);
         }
@@ -160,9 +187,6 @@ export class PlayState extends State {
     }
 
     draw(ctx) {
-        // ==========================================
-        // CAMERA SHAKE BLOCK (World only)
-        // ==========================================
         ctx.save();
 
         if (this.vfxManager) {
@@ -170,34 +194,30 @@ export class PlayState extends State {
             ctx.translate(shake.x, shake.y);
         }
 
-        // 1. Draw the game world (Stays rendered in background even if frozen)
         if (this.gameManager.entityManager) {
             this.gameManager.entityManager.draw(ctx);
         }
 
-        // 2. Draw VFX on top of entities (inclut le fade d'écran)
         if (this.vfxManager) {
             this.vfxManager.draw(ctx);
         }
 
         ctx.restore();
-        // ==========================================
-        // END CAMERA SHAKE
-        // ==========================================
 
-        // 3. Draw Persistent Game UI
         if (this.phase === 'PLAYING' && this.progressUI) {
             this.progressUI.draw(ctx);
         }
 
-        // 4. Draw Game Over UI on top of everything
         if (this.phase === 'GAMEOVER_SEQUENCE') {
             this.gameOverOverlay.draw(ctx);
         }
 
-        // 5. Draw Super Upgrade Overlay on top of everything
         if (this.phase === 'UPGRADE_SEQUENCE') {
             this.superUpgradeOverlay.draw(ctx);
+        }
+
+        if (this.phase === 'TUTORIAL_SEQUENCE') {
+            this.tutorialOverlay.draw(ctx);
         }
     }
 }

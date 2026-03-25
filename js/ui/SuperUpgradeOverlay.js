@@ -36,12 +36,14 @@ export class SuperUpgradeOverlay {
         this.wasPointerDown = true;
 
         // Determine the available upgrade pool based on current wave progression
-        if (this.currentWave <= 3) {
+        if (data.encounterType === 'TUTORIAL') {
+            // Phase 1 : Les Choix de Classe
             this.choices = [
                 { config: UpgradesConfig.ARCHETYPES['CLASS_GUNNER'], tierIndex: 0 },
                 { config: UpgradesConfig.ARCHETYPES['CLASS_CANNON'], tierIndex: 0 },
                 { config: UpgradesConfig.ARCHETYPES['CLASS_SPREAD'], tierIndex: 0 }
             ];
+
         } else {
             this.choices = UpgradesConfig.RANDOM.getWeightedSuperUpgrades(UpgradesConfig.ENHANCEMENTS, 3);
         }
@@ -188,19 +190,19 @@ export class SuperUpgradeOverlay {
 
             for (let i = this.particles.length - 1; i >= 0; i--) {
                 let p = this.particles[i];
-                
+
                 p.x += p.vx * timeFactor;
                 p.y += p.vy * timeFactor;
                 p.vy += p.gravity * timeFactor; // Apply gravity for an arc trajectory
                 p.life -= p.decay * timeFactor;
-                
+
                 if (p.life <= 0) this.particles.splice(i, 1);
             }
 
             // Close the overlay once the animation completes and trigger screen fade
             if (this.animationTimer <= 0) {
                 this.isActive = false;
-                
+
                 gameEvents.emit(EVENTS.SCREEN_FADE, {
                     duration: 400,
                     startAlpha: 0.85,
@@ -208,14 +210,19 @@ export class SuperUpgradeOverlay {
                     color: '#000000'
                 });
 
-                this.onComplete();
+                // 1. Retrieve the color of the selected card
+                const selectedChoice = this.cards[this.selectedCardIndex].choice;
+                const tierColor = this.getTierColor(selectedChoice.tierIndex);
+
+                // 2. Pass this color to the completion callback
+                this.onComplete(tierColor);
             }
             return;
         }
 
         // Standard selection logic
         const elapsed = performance.now() - this.startTime;
-        
+
         // Prevent accidental clicks immediately upon opening
         if (elapsed < 500) {
             this.wasPointerDown = pointer.isDown;
@@ -376,9 +383,9 @@ export class SuperUpgradeOverlay {
             this.particles.forEach(p => {
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
-                
+
                 const currentSize = Math.max(1, p.size * (0.5 + p.life * 0.5));
-                
+
                 // Use Math.floor on fillRect coordinates to align strictly to the pixel grid
                 ctx.fillRect(
                     Math.floor(p.x - currentSize / 2),

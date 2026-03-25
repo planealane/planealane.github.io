@@ -28,11 +28,13 @@ export class VFXManager {
         this.onPlayerDead = this.onPlayerDead.bind(this);
         this.onDamageTaken = this.onDamageTaken.bind(this);
         this.onScreenFade = this.onScreenFade.bind(this);
+        this.onSpeedLines = this.onSpeedLines.bind(this);
 
         gameEvents.on(EVENTS.ENEMY_DESTROYED, this.onEnemyDestroyed);
         gameEvents.on(EVENTS.PLAYER_DEAD, this.onPlayerDead);
         gameEvents.on(EVENTS.DAMAGE_TAKEN, this.onDamageTaken);
         gameEvents.on(EVENTS.SCREEN_FADE, this.onScreenFade);
+        gameEvents.on(EVENTS.SPEED_LINES, this.onSpeedLines);
     }
 
     /**
@@ -43,6 +45,7 @@ export class VFXManager {
         gameEvents.off(EVENTS.PLAYER_DEAD, this.onPlayerDead);
         gameEvents.off(EVENTS.DAMAGE_TAKEN, this.onDamageTaken);
         gameEvents.off(EVENTS.SCREEN_FADE, this.onScreenFade);
+        gameEvents.off(EVENTS.SPEED_LINES, this.onSpeedLines);
         this.effects = [];
     }
 
@@ -131,6 +134,15 @@ export class VFXManager {
     }
 
     /**
+         * Handles the SPEED_LINES event, spawning the hyper-speed edge lines effect.
+         * @param {Object} payload - Event data containing duration and color
+         */
+    onSpeedLines(payload) {
+        // On passe la couleur à notre effet (blanc par défaut si non fourni)
+        this.effects.push(new SpeedLinesEffect(payload.duration || 2000, payload.color || '#ffffff'));
+    }
+
+    /**
      * Helper method to instantiate and register a new explosion entity.
      * @param {number} x - Center X position
      * @param {number} y - Center Y position
@@ -203,7 +215,7 @@ export class VFXManager {
      * @param {CanvasRenderingContext2D} ctx - The active canvas context
      */
     draw(ctx) {
-        // 1. Draw individual entities (explosions, text)
+        // 1. Draw individual entities (explosions, text, speed lines)
         this.effects.forEach(fx => fx.draw(ctx));
 
         // 2. Draw global screen fade overlay on top
@@ -214,9 +226,9 @@ export class VFXManager {
 
             ctx.save();
             // Clamp alpha to ensure it strictly stays between 0 and 1
-            ctx.globalAlpha = Math.max(0, Math.min(1, currentAlpha)); 
+            ctx.globalAlpha = Math.max(0, Math.min(1, currentAlpha));
             ctx.fillStyle = this.fadeColor;
-            
+
             // Draw rectangle over the entire screen using canvas bounds
             ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.restore();
@@ -272,6 +284,86 @@ class FloatingText {
         ctx.font = `bold ${fontSize}px ${fontFamily}`;
         ctx.textAlign = 'center';
         ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+class SpeedLinesEffect {
+    /**
+     * Initializes a warp-speed lines effect on the vertical edges of the screen.
+     * @param {number} duration - Lifespan of the effect in milliseconds
+     * @param {string} color - Hex color code for the lines
+     */
+    constructor(duration = 2000, color = '#ffffff') {
+        this.duration = duration;
+        this.color = color; // On stocke la couleur
+        this.elapsed = 0;
+        this.isDead = false;
+        this.lines = [];
+
+        for (let i = 0; i < 30; i++) {
+            this.lines.push(this.createLine(true));
+        }
+    }
+
+    createLine(randomY = false) {
+        const isLeft = Math.random() > 0.5;
+        const xPct = isLeft ? (Math.random() * 0.15) : (0.85 + Math.random() * 0.15);
+
+        return {
+            xPct: xPct,
+            // CHANGEMENT DIRECTION : Si on recycle la ligne, on la place AU-DESSUS de l'écran (ex: -0.5)
+            yPct: randomY ? Math.random() : -0.5,
+            lengthPct: 0.1 + Math.random() * 0.4,
+            speed: 2.0 + Math.random() * 3.0,
+            alpha: 0.1 + Math.random() * 0.4,
+
+            // ---> C'EST ICI POUR L'ÉPAISSEUR <---
+            // Math.random() > 0.8 veut dire "20% de chances d'être plus épaisse".
+            // Tu peux changer les valeurs (ex: 4 et 2 au lieu de 3 et 1) pour des lignes plus grosses en pixel art.
+            width: Math.random() > 0.8 ? 8 : 4
+        };
+    }
+
+    update(dt) {
+        this.elapsed += dt;
+        if (this.elapsed >= this.duration) {
+            this.isDead = true;
+            return;
+        }
+
+        const dtSec = dt / 1000;
+        for (let i = 0; i < this.lines.length; i++) {
+            let l = this.lines[i];
+
+            // CHANGEMENT DIRECTION : On AJOUTE la vitesse pour descendre (de haut en bas)
+            l.yPct += l.speed * dtSec;
+
+            // CHANGEMENT DIRECTION : Si la ligne sort par le BAS (> 1.0), on la recycle en haut
+            if (l.yPct > 1.0) {
+                this.lines[i] = this.createLine(false);
+            }
+        }
+    }
+
+    draw(ctx) {
+        const w = ctx.canvas.width;
+        const h = ctx.canvas.height;
+
+        const lifeRatio = 1 - (this.elapsed / this.duration);
+        const fadeAlpha = Math.min(1, lifeRatio * 3);
+
+        ctx.save();
+        // CHANGEMENT COULEUR : On utilise la couleur reçue lors de la création
+        ctx.fillStyle = this.color;
+
+        for (let i = 0; i < this.lines.length; i++) {
+            let l = this.lines[i];
+            ctx.globalAlpha = fadeAlpha * l.alpha;
+            // On utilise Math.floor pour rester net (style Pixel Art)
+            ctx.fillRect(Math.floor(l.xPct * w), Math.floor(l.yPct * h), l.width, Math.floor(l.lengthPct * h));
+        }
+
         ctx.restore();
     }
 }

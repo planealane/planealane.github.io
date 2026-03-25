@@ -27,6 +27,6 @@ export const BossConfig = {
  */
 export function getBossDef(encounterData) {
     if (encounterData.id === 'final_boss') return BossConfig['final_boss'];
-    if (encounterData.type === 'MINIBOSS') return BossConfig['miniboss'];
+    if (encounterData.type === 'miniboss') return BossConfig['miniboss'];
     return BossConfig['boss']; // Default standard boss fallback
 }

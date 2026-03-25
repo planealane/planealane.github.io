@@ -31,7 +31,7 @@ export class EntityManager {
     update(dt, playerX, currentWave = 1) {
         this.entities.forEach(entity => entity.update(dt, playerX, this));
         this.handleCollisions(currentWave);
-        this.processDeaths(); 
+        this.processDeaths();
         this.entities = this.entities.filter(entity => !entity.markForDeletion);
     }
 
@@ -59,7 +59,7 @@ export class EntityManager {
             if (projectile.markForDeletion) return;
 
             enemies.forEach(enemy => {
-                if (enemy.markForDeletion || enemy.hp <= 0) return; 
+                if (enemy.markForDeletion || enemy.hp <= 0) return;
                 if (enemy.y < 0) return; // Invincibility frame while entering screen
 
                 if (checkAABB(projectile, enemy)) {
@@ -86,13 +86,13 @@ export class EntityManager {
             if (checkAABB(player, enemy)) {
                 // 1. Save remaining HP as ramming damage before killing the enemy
                 const rammingDamage = enemy.hp;
-                
+
                 // 2. Set to 0 to trigger explosion and loot in processDeaths()
-                enemy.hp = 0; 
-                
+                enemy.hp = 0;
+
                 // 3. Apply damage to player
-                player.stats.hp -= rammingDamage; 
-                
+                player.stats.hp -= rammingDamage;
+
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'player_hit', volume: 0.8 });
 
                 if (player.stats.hp <= 0) {
@@ -108,12 +108,12 @@ export class EntityManager {
 
             if (checkExtendedAABB(player, collectible, 60)) {
                 collectible.markForDeletion = true;
-                
+
                 // Apply logic dynamically from centralized config
                 if (UpgradesConfig.LOGIC[collectible.type]) {
                     UpgradesConfig.LOGIC[collectible.type](player, collectible.bonusValue, currentWave);
                 }
-                
+
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.7 });
             }
         });
@@ -123,7 +123,7 @@ export class EntityManager {
             if (gate.markForDeletion) return;
 
             if (checkAABB(player, gate)) {
-                
+
                 // Apply logic dynamically from centralized config
                 if (UpgradesConfig.LOGIC[gate.bonusType]) {
                     UpgradesConfig.LOGIC[gate.bonusType](player, gate.bonusValue, currentWave);
@@ -140,21 +140,20 @@ export class EntityManager {
             }
         });
 
-        // E. Player vs Super Collectibles (Boss drops)
+        // E. Player vs Super Collectibles
         superCollectibles.forEach(superLoot => {
             if (superLoot.markForDeletion) return;
-
-            // Small delay to prevent instant pickup
-            if (superLoot.aliveTime < 1000) return; 
+            if (superLoot.aliveTime < 1000) return;
 
             if (checkAABB(player, superLoot)) {
                 superLoot.markForDeletion = true;
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'super_bonus', volume: 1.0 });
-                
-                // Pass currentWave to UI to determine which upgrade pool to draw from (Archetypes vs Enhancements)
-                gameEvents.emit(EVENTS.SUPER_LOOT_PICKUP, { 
+
+                // [MODIFIÉ] On ajoute le type de boss à l'événement !
+                gameEvents.emit(EVENTS.SUPER_LOOT_PICKUP, {
                     player: player,
-                    wave: currentWave
+                    wave: currentWave,
+                    encounterType: superLoot.sourceEncounterType // 'TUTORIAL', 'MINIBOSS', ou 'BOSS'
                 });
             }
         });
@@ -163,20 +162,22 @@ export class EntityManager {
     // ============================================================================
     // DEATH PROCESSING (Centralized Loot & VFX)
     // ============================================================================
-    
+
     processDeaths() {
         const enemies = this.entities.filter(e => e instanceof Enemy || e instanceof Boss);
-        
+
         enemies.forEach(enemy => {
             if (!enemy.markForDeletion && enemy.hp <= 0) {
-                
+
                 enemy.markForDeletion = true;
-                
+
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'explosion', volume: 0.6 });
 
                 // Spawn boss loot
                 if (enemy.isBoss) {
-                    this.addEntity(new SuperCollectible(enemy.x, enemy.y));
+                    const loot = new SuperCollectible(enemy.x, enemy.y);
+                    loot.sourceEncounterType = enemy.encounterData ? enemy.encounterData.type : 'BOSS';
+                    this.addEntity(loot);
                 }
 
                 gameEvents.emit(EVENTS.ENEMY_DESTROYED, {
