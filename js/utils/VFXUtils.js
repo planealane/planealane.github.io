@@ -41,3 +41,40 @@ export function drawAlgorithmicTrail(ctx, x, y, width, height, time, isReversed 
         ctx.fillRect(pX, pY, size, size);
     }
 }
+
+/**
+ * Dessine un effet de lignes de vitesse style "Manga/Hyperespace"
+ * @param {CanvasRenderingContext2D} ctx 
+ * @param {number} width - Largeur de l'écran
+ * @param {number} height - Hauteur de l'écran
+ * @param {number} time - Temps actuel pour l'animation
+ */
+export function drawMangaLines(ctx, width, height, time) {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const lineCount = 40;
+    
+    ctx.save();
+    // On centre le contexte pour faciliter la rotation
+    ctx.translate(centerX, centerY);
+    
+    for (let i = 0; i < lineCount; i++) {
+        // Calcul d'un angle pour chaque ligne
+        const angle = (Math.PI * 2 / lineCount) * i;
+        
+        // Ajoute un peu d'aléatoire basé sur l'index pour désynchroniser les lignes
+        const offset = (time * 0.5 + i * 100) % 500;
+        const lineLength = 100 + (Math.sin(time * 0.005 + i) * 50);
+        
+        ctx.rotate(angle);
+        
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.1 + (offset / 1000)})`;
+        // Dessine la ligne (qui part du centre + offset vers l'extérieur)
+        ctx.fillRect(offset, -1, lineLength, 2);
+        
+        // Annule la rotation pour la prochaine itération
+        ctx.rotate(-angle);
+    }
+    
+    ctx.restore();
+}

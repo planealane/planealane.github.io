@@ -5,8 +5,8 @@ import { ExplosionEntity } from '../entities/Explosion.js';
 
 export class VFXManager {
     /**
-     * Initializes the VFX manager, sets up state for effects and screen shake, 
-     * and binds event listeners to the global event bus.
+     * Initializes the VFX manager, sets up state for effects, screen shake, 
+     * screen fades, and binds event listeners to the global event bus.
      * @param {Object} assets - The game asset manager
      */
     constructor(assets) {
@@ -17,13 +17,22 @@ export class VFXManager {
         this.shakeTimer = 0;
         this.shakeIntensity = 0;
 
+        // Screen fade state
+        this.fadeTimer = 0;
+        this.fadeDuration = 0;
+        this.fadeStartAlpha = 0;
+        this.fadeEndAlpha = 0;
+        this.fadeColor = '#000000';
+
         this.onEnemyDestroyed = this.onEnemyDestroyed.bind(this);
         this.onPlayerDead = this.onPlayerDead.bind(this);
         this.onDamageTaken = this.onDamageTaken.bind(this);
+        this.onScreenFade = this.onScreenFade.bind(this);
 
         gameEvents.on(EVENTS.ENEMY_DESTROYED, this.onEnemyDestroyed);
         gameEvents.on(EVENTS.PLAYER_DEAD, this.onPlayerDead);
         gameEvents.on(EVENTS.DAMAGE_TAKEN, this.onDamageTaken);
+        gameEvents.on(EVENTS.SCREEN_FADE, this.onScreenFade);
     }
 
     /**
@@ -33,6 +42,7 @@ export class VFXManager {
         gameEvents.off(EVENTS.ENEMY_DESTROYED, this.onEnemyDestroyed);
         gameEvents.off(EVENTS.PLAYER_DEAD, this.onPlayerDead);
         gameEvents.off(EVENTS.DAMAGE_TAKEN, this.onDamageTaken);
+        gameEvents.off(EVENTS.SCREEN_FADE, this.onScreenFade);
         this.effects = [];
     }
 
@@ -109,6 +119,18 @@ export class VFXManager {
     }
 
     /**
+     * Handles the SCREEN_FADE event, initializing a global screen fade transition.
+     * @param {Object} payload - Event data containing duration, startAlpha, endAlpha, and color
+     */
+    onScreenFade(payload) {
+        this.fadeDuration = payload.duration || 400;
+        this.fadeTimer = this.fadeDuration;
+        this.fadeStartAlpha = payload.startAlpha !== undefined ? payload.startAlpha : 1.0;
+        this.fadeEndAlpha = payload.endAlpha !== undefined ? payload.endAlpha : 0.0;
+        this.fadeColor = payload.color || '#000000';
+    }
+
+    /**
      * Helper method to instantiate and register a new explosion entity.
      * @param {number} x - Center X position
      * @param {number} y - Center Y position
@@ -132,15 +154,21 @@ export class VFXManager {
     }
 
     /**
-         * Updates all active visual effects and the camera shake state.
-         * @param {number} scaledDt - Game time delta (affected by slow-mo and pauses)
-         * @param {number} unscaledDt - Real time delta (used for UI and camera shake)
-         */
+     * Updates all active visual effects, the camera shake state, and screen fade.
+     * @param {number} scaledDt - Game time delta (affected by slow-mo and pauses)
+     * @param {number} unscaledDt - Real time delta (used for UI and camera shake)
+     */
     update(scaledDt, unscaledDt = scaledDt) {
         // Screen shake uses unscaled real time to prevent infinite loops when game is frozen
         if (this.shakeTimer > 0) {
             this.shakeTimer -= unscaledDt;
             if (this.shakeTimer < 0) this.shakeTimer = 0;
+        }
+
+        // Screen fade also uses unscaled time so it continues smoothly during pauses
+        if (this.fadeTimer > 0) {
+            this.fadeTimer -= unscaledDt;
+            if (this.fadeTimer < 0) this.fadeTimer = 0;
         }
 
         // Active effects use scaled game time (allows slow-mo explosions to freeze correctly)
@@ -171,11 +199,28 @@ export class VFXManager {
     }
 
     /**
-     * Renders all active visual effects to the canvas context.
+     * Renders all active visual effects and full-screen overlays to the canvas context.
      * @param {CanvasRenderingContext2D} ctx - The active canvas context
      */
     draw(ctx) {
+        // 1. Draw individual entities (explosions, text)
         this.effects.forEach(fx => fx.draw(ctx));
+
+        // 2. Draw global screen fade overlay on top
+        if (this.fadeTimer > 0) {
+            // Calculate progress (0.0 to 1.0)
+            const progress = 1 - (this.fadeTimer / this.fadeDuration);
+            const currentAlpha = this.fadeStartAlpha + (this.fadeEndAlpha - this.fadeStartAlpha) * progress;
+
+            ctx.save();
+            // Clamp alpha to ensure it strictly stays between 0 and 1
+            ctx.globalAlpha = Math.max(0, Math.min(1, currentAlpha)); 
+            ctx.fillStyle = this.fadeColor;
+            
+            // Draw rectangle over the entire screen using canvas bounds
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.restore();
+        }
     }
 }
 

@@ -55,6 +55,15 @@ export class PlayState extends State {
 
         this.onSuperLootPickup = this.onSuperLootPickup.bind(this);
         gameEvents.on(EVENTS.SUPER_LOOT_PICKUP, this.onSuperLootPickup);
+
+        // 7. --- NOUVEAU : Déclencher le fondu d'entrée ---
+        // On demande au VFXManager qu'on vient de créer de faire un fondu du noir (1.0) vers le transparent (0.0)
+        gameEvents.emit(EVENTS.SCREEN_FADE, {
+            duration: 600, // 600ms pour une transition douce
+            startAlpha: 1.0, // On commence tout noir
+            endAlpha: 0.0,   // On finit transparent
+            color: '#000000'
+        });
     }
 
     exit() {
@@ -82,8 +91,6 @@ export class PlayState extends State {
         if (this.phase !== 'PLAYING') return;
         this.phase = 'UPGRADE_SEQUENCE';
 
-        // [MODIFIÉ] On transmet les données (player et wave) à l'overlay
-        // L'overlay utilisera 'data.wave' pour savoir s'il affiche la Phase 1 ou 2
         this.superUpgradeOverlay.start(data);
     }
 
@@ -168,7 +175,7 @@ export class PlayState extends State {
             this.gameManager.entityManager.draw(ctx);
         }
 
-        // 2. Draw VFX on top of entities
+        // 2. Draw VFX on top of entities (inclut le fade d'écran)
         if (this.vfxManager) {
             this.vfxManager.draw(ctx);
         }
