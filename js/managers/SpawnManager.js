@@ -6,6 +6,7 @@ import { Collectible } from '../entities/Collectible.js';
 import { GameConfig } from '../GameConfig.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 import { LevelProgression } from '../config/LevelProgression.js';
+import { WeaponConfig } from '../config/WeaponConfig.js';
 
 export class SpawnManager {
     constructor() {
@@ -143,7 +144,7 @@ export class SpawnManager {
 
     spawnLoot(entityManager, x, y) {
         // [MODIFIED] Draw from the dynamic upgrade keys in GameConfig
-        const upgradeKeys = Object.keys(GameConfig.UPGRADES);
+        const upgradeKeys = Object.keys(WeaponConfig.UPGRADES);
         const selectedKey = upgradeKeys[Math.floor(Math.random() * upgradeKeys.length)];
         
         // Default to Tier 0 (index 0) for standard mob loot. 

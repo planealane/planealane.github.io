@@ -63,9 +63,13 @@ export class GameOverOverlay {
         // Empêche le spam clic si la transition est déjà lancée
         if (this.gameManager.transitionManager.isActive) return;
 
-        // On délègue l'effet circulaire au TransitionManager !
+        // [CORRECTION CRITIQUE] Le code était en dehors du bloc de la fonction !
         const tx = this.gameManager.canvas.width / 2;
         const ty = this.gameManager.canvas.height / 2;
+        
+        // On force la fin du hit stop pour être sûr que le GameManager n'est pas bloqué
+        this.gameManager.hitStopTimer = 0;
+        
         this.gameManager.requestTransition(targetState, 'IRIS', 1000, tx, ty);
     }
 
@@ -82,20 +86,48 @@ export class GameOverOverlay {
         return 1 - Math.pow(1 - x, 3);
     }
 
-    // ============================================================================
-    // LOGIC & RENDERING
+// ============================================================================
+    // LOGIC & UPDATES
     // ============================================================================
 
     update(dt, pointer) {
         if (!this.isActive) return;
 
-        // On gèle l'UI si l'Iris Wipe est en cours
+        // Freeze UI if Iris Wipe transition is running
         if (this.gameManager.transitionManager.isActive) return;
 
         const elapsed = performance.now() - this.startTime;
-        if (elapsed > UIConfig.SCREENS.GAMEOVER.BUTTON_APPEAR_DELAY_MS) {
-            this.buttons.forEach(btn => btn.update(pointer.x, pointer.y, pointer.isDown));
+        const anims = UIConfig.ANIMATIONS;
+        const layout = UIConfig.SCREENS.GAMEOVER;
+        
+        if (elapsed > layout.BUTTON_APPEAR_DELAY_MS) {
+            const btnElapsed = elapsed - layout.BUTTON_APPEAR_DELAY_MS;
+            // Ensure positive progress clamped between 0 and 1
+            const btnProgress = Math.min(1, Math.max(0, btnElapsed / anims.GAMEOVER_BTN_SLIDE_MS));
 
+            this.buttons.forEach((btn, index) => {
+                // 1. Calculate animation and mutate physical state here (SOLID Principle)
+                const staggerDelay = index * 0.15;
+                let individualProgress = 0;
+
+                if (btnProgress > staggerDelay) {
+                    individualProgress = Math.min(1, (btnProgress - staggerDelay) / (1 - staggerDelay));
+                }
+
+                const btnEase = this.easeOutCubic(individualProgress);
+                const btnStartY = btn.anchorY + 50;
+
+                // Update physical position BEFORE calculating pointer collisions
+                btn.baseY = btnStartY + (btn.anchorY - btnStartY) * btnEase;
+                
+                // Store alpha state for the draw loop
+                btn.currentAlpha = individualProgress; 
+
+                // 2. Update button interactions with fresh, accurate coordinates
+                btn.update(pointer.x, pointer.y, pointer.isDown);
+            });
+
+            // Handle clicks after all states are strictly updated
             if (pointer.isDown && !this.wasPointerDown) {
                 [...this.buttons].forEach(btn => btn.handleClick(pointer.x, pointer.y));
             }
@@ -103,6 +135,10 @@ export class GameOverOverlay {
 
         this.wasPointerDown = pointer.isDown;
     }
+
+    // ============================================================================
+    // RENDERING
+    // ============================================================================
 
     draw(ctx) {
         if (!this.isActive) return;
@@ -113,13 +149,13 @@ export class GameOverOverlay {
         const anims = UIConfig.ANIMATIONS;
         const layout = UIConfig.SCREENS.GAMEOVER;
 
-        // 1. Gradual Dark Fade (sur l'écran de jeu dessiné par PlayState en dessous)
-        const fadeProgress = Math.min(1, elapsed / anims.GAMEOVER_FADE_MS);
+        // 1. Gradual Dark Fade
+        const fadeProgress = Math.min(1, Math.max(0, elapsed / anims.GAMEOVER_FADE_MS));
         ctx.fillStyle = `rgba(0, 0, 0, ${0.75 * fadeProgress})`;
         ctx.fillRect(0, 0, width, height);
 
         // 2. Bouncing Text
-        const bounceProgress = Math.min(1, elapsed / anims.GAMEOVER_BOUNCE_MS);
+        const bounceProgress = Math.min(1, Math.max(0, elapsed / anims.GAMEOVER_BOUNCE_MS));
         const bounceEase = this.easeOutBounce(bounceProgress);
 
         const targetTextY = height * 0.25;
@@ -130,34 +166,21 @@ export class GameOverOverlay {
         ctx.font = `bold 150px ${GameConfig.FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        
         ctx.shadowColor = 'rgba(241, 196, 15, 0.5)';
-        ctx.shadowBlur = 20 * bounceProgress;
+        ctx.shadowBlur = Math.max(0, 20 * bounceProgress);
         ctx.fillText('GAME OVER', width / 2, currentTextY);
         ctx.shadowBlur = 0;
 
-        // 3. Sliding Buttons (with a slight stagger effect for juice)
+        // 3. Sliding Buttons (Rendering Only)
         if (elapsed > layout.BUTTON_APPEAR_DELAY_MS) {
-            const btnElapsed = elapsed - layout.BUTTON_APPEAR_DELAY_MS;
-            const btnProgress = Math.min(1, btnElapsed / anims.GAMEOVER_BTN_SLIDE_MS);
-
             if (!this.gameManager.transitionManager.isActive) {
-                this.buttons.forEach((btn, index) => {
-                    const staggerDelay = index * 0.15;
-                    let individualProgress = 0;
-
-                    if (btnProgress > staggerDelay) {
-                        individualProgress = Math.min(1, (btnProgress - staggerDelay) / (1 - staggerDelay));
-                    }
-
-                    const btnEase = this.easeOutCubic(individualProgress);
-                    const btnStartY = btn.anchorY + 50;
-
-                    btn.baseY = btnStartY + (btn.anchorY - btnStartY) * btnEase;
-
-                    ctx.globalAlpha = individualProgress;
+                this.buttons.forEach((btn) => {
+                    // Read state strictly prepared by update()
+                    ctx.globalAlpha = btn.currentAlpha !== undefined ? btn.currentAlpha : 1.0;
                     btn.draw(ctx);
+                    ctx.globalAlpha = 1.0;
                 });
-                ctx.globalAlpha = 1.0;
             }
         }
     }

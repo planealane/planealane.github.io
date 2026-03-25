@@ -1,5 +1,6 @@
 // js/entities/Gate.js
 import { GameConfig } from '../GameConfig.js';
+import { WeaponConfig } from '../config/WeaponConfig.js';
 import { UIConfig } from '../UIConfig.js';
 import { SpriteEntity, drawBonusText } from './Entity.js';
 
@@ -16,11 +17,11 @@ export class Gate extends SpriteEntity {
         this.speed = GameConfig.SCROLL_SPEED; 
 
         // Determine upgrade type and tier
-        const upgradeKeys = Object.keys(GameConfig.UPGRADES);
+        const upgradeKeys = Object.keys(WeaponConfig.UPGRADES);
         this.bonusType = upgradeKeys[Math.floor(Math.random() * upgradeKeys.length)];
         
         this.tierIndex = Math.floor(Math.random() * 3); 
-        this.bonusValue = GameConfig.UPGRADES[this.bonusType][this.tierIndex]; 
+        this.bonusValue = WeaponConfig.UPGRADES[this.bonusType][this.tierIndex]; 
         
         // Fetch UI formatting
         this.text = UIConfig.BONUS_VISUALS.getLabel(this.bonusType, this.bonusValue);

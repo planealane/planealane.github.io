@@ -3,6 +3,7 @@ import { GameConfig } from '../GameConfig.js';
 import { ShipsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity, drawFloatingText } from './Entity.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
+import { drawAlgorithmicTrail } from '../utils/VFXUtils.js';
 
 export class Enemy extends SpriteEntity {
     constructor(x, y, image, maxHp, variantIndex = 0) {
@@ -10,7 +11,6 @@ export class Enemy extends SpriteEntity {
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
         // Enemies face downward (Math.PI)
-        // [MODIFIÉ] On utilise GameConfig.Z_INDEX.ENEMY au lieu de 20
         super(x, y, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, Math.PI, GameConfig.Z_INDEX.ENEMY);
         
         this.speed = GameConfig.SCROLL_SPEED;
@@ -19,8 +19,12 @@ export class Enemy extends SpriteEntity {
         this.aliveTime = Math.random() * Math.PI * 2;
         this.breathingSpeed = 0.0015 + (Math.random() - 0.5) * 0.0005;
         this.breathingAmplitude = 0.02 + (Math.random() - 0.5) * 0.01;
+        
+        // Hit feedback properties
         this.currentScale = 1.0;
         this.hitScale = 1.0;
+        this.hitFlashTimer = 0;
+        this.hitFlashDuration = 60; // Flash duration in milliseconds
 
         this.hp = maxHp;
         this.maxHp = maxHp;
@@ -30,10 +34,11 @@ export class Enemy extends SpriteEntity {
      * Triggered by EntityManager when a projectile AABB intersects this enemy.
      */
     onHit() {
-        // Visual Juice: instant shrink
+        // Visual Juice: instant shrink and white flash
         this.hitScale = 0.9; 
+        this.hitFlashTimer = this.hitFlashDuration;
 
-        // [EVENT] Broadcast hit sound
+        // Broadcast hit sound
         gameEvents.emit(EVENTS.PLAY_SFX, { id: 'hit', volume: 0.5 });
     }
 
@@ -48,12 +53,18 @@ export class Enemy extends SpriteEntity {
             this.hitScale += (1.0 - this.hitScale) * 0.15; 
         }
 
+        // Decrement flash timer
+        if (this.hitFlashTimer > 0) {
+            this.hitFlashTimer -= dt;
+        }
+
         // Movement
         this.y += this.speed * dt;
         if (this.y > GameConfig.GAME_HEIGHT + 200) this.markForDeletion = true;
     }
 
-    draw(ctx) {
+draw(ctx) {
+        // Draw the trail behind the enemy
         drawAlgorithmicTrail(
             ctx, 
             this.x - this.width / 2, 
@@ -61,7 +72,7 @@ export class Enemy extends SpriteEntity {
             this.width, 
             this.height, 
             performance.now(), 
-            false
+            true
         );
 
         ctx.save();
@@ -72,14 +83,27 @@ export class Enemy extends SpriteEntity {
         const finalScale = this.currentScale * this.hitScale;
         ctx.scale(finalScale, finalScale);
 
+        // Apply white flash filter if the timer is active
+        // brightness(0) makes visible pixels black, invert(1) turns them pure white
+        if (this.hitFlashTimer > 0) {
+            ctx.filter = 'brightness(0) invert(1)';
+        }
+
         ctx.drawImage(
             this.image,
             this.frame.sx, this.frame.sy, this.frame.sWidth, this.frame.sHeight,
             -this.width / 2, -this.height / 2,
             this.width, this.height
         );
+
+        // Reset filter
+        if (this.hitFlashTimer > 0) {
+            ctx.filter = 'none';
+        }
+
         ctx.restore();
 
+        // Draw HP text
         const textY = this.y - (this.height / 2) - 25;
         drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#e74c3c');
     }

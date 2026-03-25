@@ -5,6 +5,8 @@ import { SpriteEntity, drawFloatingText } from './Entity.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 import { PrimaryWeapon } from '../weapons/PrimaryWeapon.js';
 import { SecondaryWeapon } from '../weapons/SecondaryWeapon.js';
+import { drawAlgorithmicTrail } from '../utils/VFXUtils.js';
+import { WeaponConfig } from '../config/WeaponConfig.js';
 
 export class Player extends SpriteEntity {
     constructor(image, variantIndex = GameConfig.PLAYER_BASE_VARIANT) {
@@ -22,8 +24,8 @@ export class Player extends SpriteEntity {
 
         // Weapon system initialization
         this.weapons = [
-            new PrimaryWeapon(GameConfig.WEAPONS.PRIMARY),
-            new SecondaryWeapon(GameConfig.WEAPONS.SECONDARY)
+            new PrimaryWeapon(WeaponConfig.BASE.PRIMARY),
+            new SecondaryWeapon(WeaponConfig.BASE.SECONDARY)
         ];
 
         // Physics for visual banking (tilting) when moving horizontally

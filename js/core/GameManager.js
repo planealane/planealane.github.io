@@ -6,6 +6,7 @@ import { LoadState } from '../states/LoadState.js';
 import { StartState } from '../states/StartState.js';
 import { PlayState } from '../states/PlayState.js';
 import { Background } from '../utils/Background.js';
+import { gameEvents, EVENTS } from './EventBus.js'; // [NOUVEAU] Import de l'EventBus
 
 export class GameManager {
 
@@ -30,6 +31,15 @@ export class GameManager {
         this.accumulator = 0;
         this.FIXED_TIME_STEP = 1000 / 60; // ~16.66ms per logic tick
         this.MAX_FRAME_TIME = 250; // Cap to prevent death spiral on tab resume
+
+        // --- Hit Stop State ---
+        this.hitStopTimer = 0;
+        gameEvents.on(EVENTS.HIT_STOP, (duration) => {
+            // Only override if the new freeze is longer than the remaining one
+            if (duration > this.hitStopTimer) {
+                this.hitStopTimer = duration;
+            }
+        });
 
         this.inputManager = new InputManager(this.canvas);
         this.background = new Background(this.assets, this.canvas.width, this.canvas.height);
@@ -77,6 +87,7 @@ export class GameManager {
 
         // Toujours remettre la vitesse normale au changement d'état
         this.timeScale = 1.0; 
+        this.hitStopTimer = 0; // Reset any active time freeze
 
         this.currentState = this.states[newStateKey];
 
@@ -108,6 +119,24 @@ export class GameManager {
             rawDt = this.MAX_FRAME_TIME;
         }
 
+        // ==========================================
+        // TIME FREEZE (HIT STOP)
+        // ==========================================
+        if (this.hitStopTimer > 0) {
+            this.hitStopTimer -= rawDt;
+            
+            // Keep drawing the frozen frame to prevent flickering
+            if (this.background) this.background.draw(this.ctx);
+            if (this.currentState) this.currentState.draw(this.ctx);
+            this.transitionManager.draw(this.ctx);
+            
+            requestAnimationFrame(this.loop.bind(this));
+            return; // Skip all updates this frame
+        }
+
+        // ==========================================
+        // NORMAL LOOP
+        // ==========================================
         const scaledDt = rawDt * this.timeScale;
         this.accumulator += scaledDt;
 
@@ -133,9 +162,6 @@ export class GameManager {
         this.transitionManager.update(rawDt);
 
         // 4. RENDER (Once per frame)
-        // Clear canvas if necessary, though background usually overwrites everything
-        // this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
         if (this.background) {
             this.background.draw(this.ctx);
         }

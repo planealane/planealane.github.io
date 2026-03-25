@@ -3,6 +3,7 @@ import { GameConfig } from '../GameConfig.js';
 import { UIConfig } from '../UIConfig.js';
 import { PropsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity, drawBonusText } from './Entity.js';
+import { WeaponConfig } from '../config/WeaponConfig.js';
 
 export class Collectible extends SpriteEntity {
     constructor(x, y, image, type, tierIndex = 0) {
@@ -13,7 +14,7 @@ export class Collectible extends SpriteEntity {
         
         this.type = type;
         this.tierIndex = tierIndex;
-        this.bonusValue = GameConfig.UPGRADES[this.type] ? GameConfig.UPGRADES[this.type][this.tierIndex] : 0;
+        this.bonusValue = WeaponConfig.UPGRADES[this.type] ? WeaponConfig.UPGRADES[this.type][this.tierIndex] : 0;
         
         this.speed = GameConfig.SCROLL_SPEED;
         this.aliveTime = 0;

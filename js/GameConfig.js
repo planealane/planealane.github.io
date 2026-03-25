@@ -56,7 +56,7 @@ export const GameConfig = {
     // ==========================================
     // PLAYER CONFIGURATION
     // ==========================================
-    PLAYER_BASE_HP: 1,                     // Initial health points
+    PLAYER_BASE_HP: 100,                     // Initial health points
     PLAYER_BASE_DMG: 10,                   // Legacy config, currently unused as weapon stats take over
     PLAYER_BASE_VARIANT: 10,               // Initial sprite index for the player ship
     TITLE_PLAYER_SIZE: 450,                // Sprite dimension for the ship on the start menu
@@ -117,36 +117,4 @@ export const GameConfig = {
         if (encounterData.type === 'MINIBOSS') return this.BOSS_DEFINITIONS['miniboss'];
         return this.BOSS_DEFINITIONS['boss']; // Fallback
     },
-
-    // ==========================================
-    // WEAPONS BASE STATS
-    // ==========================================
-    WEAPONS: {
-        PRIMARY: {
-            damage: 10,             // Base damage per bullet
-            cooldown: 1000,         // Firing delay in ms
-            projectileSpeed: 1      // Base bullet velocity
-        },
-        SECONDARY: {
-            damage: 5,              // Base damage per missile
-            cooldown: 10000,        // Firing delay in ms (10s)
-            count: 3,               // Missiles fired per burst
-            projectileSpeed: 1,     // Base missile velocity
-            turnFactor: 0.008,      // Turning speed for homing tracking
-            staggerMs: 120          // Delay between each missile in a burst
-        }
-    },
-
-    // ==========================================
-    // UPGRADE TIERS (Index 0 = Tier 1, Index 1 = Tier 2, Index 2 = Tier 3)
-    // ==========================================
-    UPGRADES: {
-        PRIMARY_DAMAGE: [1, 2, 3],              // Flat addition
-        PRIMARY_FIRE_RATE: [10, 20, 30],        // Flat ms reduction
-        PRIMARY_BULLET_SPEED: [1, 2, 3],        // Flat addition
-        SECONDARY_DAMAGE: [1, 2, 3],            // Flat addition
-        SECONDARY_COUNT: [1, 2, 3],             // Flat addition
-        SECONDARY_COOLDOWN: [0.05, 0.10, 0.15], // Percentage reduction
-        HULL_REPAIR: [10, 20, 30]               // Flat HP addition
-    }
 };

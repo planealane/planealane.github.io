@@ -30,7 +30,7 @@ export class PlayState extends State {
         // 2. State configuration
         this.phase = 'PLAYING'; // 'PLAYING' | 'GAMEOVER_SEQUENCE' | 'UPGRADE_SEQUENCE'
         this.gameOverOverlay = new GameOverOverlay(this.gameManager);
-        
+
         // Initialize the Super Upgrade Overlay with a callback to resume the game
         this.superUpgradeOverlay = new SuperUpgradeOverlay(this.gameManager, () => {
             this.resumeGameplay();
@@ -61,7 +61,7 @@ export class PlayState extends State {
         // Unbind to prevent zombie listeners if state is destroyed
         gameEvents.off(EVENTS.PLAYER_DEAD, this.onPlayerDead);
         gameEvents.off(EVENTS.SUPER_LOOT_PICKUP, this.onSuperLootPickup);
-        
+
         if (this.vfxManager) {
             this.vfxManager.destroy();
         }
@@ -79,16 +79,16 @@ export class PlayState extends State {
         this.gameOverOverlay.start();
     }
 
-onSuperLootPickup(data) {
+    onSuperLootPickup(data) {
         if (this.phase !== 'PLAYING') return;
-        
+
         this.phase = 'UPGRADE_SEQUENCE';
-        
+
         // ON NE TOUCHE PLUS AU timeScale ICI !
         // On lance juste l'overlay.
         this.superUpgradeOverlay.start(data.player);
     }
-    
+
     resumeGameplay() {
         this.phase = 'PLAYING';
         // Plus besoin de restaurer le timeScale non plus
@@ -97,61 +97,79 @@ onSuperLootPickup(data) {
     // LOGIC & RENDERING
     // ============================================================================
 
-update(dt, pointer) {
-        // Debug: Cycle player plane variant with 'C' key
+    // ============================================================================
+    // LOGIC & RENDERING
+    // ============================================================================
+
+    update(dt, pointer) {
+        if (dt > 100) return;
+
         if (this.gameManager.inputManager.isKeyDown('c')) {
             const player = this.gameManager.entityManager.entities.find(ent => ent.constructor.name === 'Player');
-            if (player) {
-                player.setVariant(player.currentVariant + 1);
-            }
+            if (player) player.setVariant(player.currentVariant + 1);
         }
 
-        // Phase: Game Over Sequence
-        if (this.phase === 'GAMEOVER_SEQUENCE') {
+        let shouldUpdateWorld = false;
+        let currentScaledDt = 0; // Default to 0
+
+        // 2. Phase Management
+        if (this.phase === 'PLAYING') {
+            shouldUpdateWorld = true;
+            currentScaledDt = dt * this.gameManager.timeScale;
+        }
+        else if (this.phase === 'GAMEOVER_SEQUENCE') {
             const elapsed = performance.now() - this.gameOverOverlay.startTime;
 
-            if (elapsed > 2000) {
-                // Drain timescale using real time (dt). Will reach 0 smoothly.
-                this.gameManager.timeScale = Math.max(0, this.gameManager.timeScale - dt * 0.001);
-            } else {
-                // Lock at 25% speed for exactly 2 seconds. Explosions will finish normally.
+            if (elapsed <= 2000) {
                 this.gameManager.timeScale = 0.25;
+                shouldUpdateWorld = true;
+                currentScaledDt = dt * this.gameManager.timeScale;
+            } else {
+                shouldUpdateWorld = false;
+                currentScaledDt = 0; // Explicitly freeze time
             }
 
             this.gameOverOverlay.update(dt, pointer);
         }
-
-        // Phase: Upgrade Sequence
-        if (this.phase === 'UPGRADE_SEQUENCE') {
-            // Update the overlay logic (clicks, animations) using real time (dt)
+        else if (this.phase === 'UPGRADE_SEQUENCE') {
+            shouldUpdateWorld = false;
+            currentScaledDt = 0;
             this.superUpgradeOverlay.update(dt, pointer);
         }
 
-        // Apply timescale to delta time ONLY ONCE
-        if (dt < 100) {
-            const scaledDt = dt * this.gameManager.timeScale;
+        // 3. World & Entities Execution
+        if (shouldUpdateWorld) {
+            this.gameManager.entityManager.update(currentScaledDt, pointer.x);
 
-            // Only update game entities and spawner if we are actively playing
-            if (this.phase === 'PLAYING') {
-                if (this.gameManager.timeScale > 0) {
-                    this.gameManager.entityManager.update(scaledDt, pointer.x);
-                    this.vfxManager.update(scaledDt); // Updates particles with slow-motion
-                }
-
-                if (this.spawner) {
-                    this.spawner.update(scaledDt, this.gameManager.entityManager);
-                    const ratio = this.spawner.getProgressRatio();
-                    this.progressUI.updateRatio(ratio);
-                }
-            }
-
-            // Progress UI smooth animation updates using scaledDt
-            if (this.progressUI) {
-                this.progressUI.update(scaledDt);
+            if (this.phase === 'PLAYING' && this.spawner) {
+                this.spawner.update(currentScaledDt, this.gameManager.entityManager);
+                const ratio = this.spawner.getProgressRatio();
+                this.progressUI.updateRatio(ratio);
             }
         }
+
+        // 4. VFX Execution (Outside the freeze block)
+        if (this.vfxManager) {
+            // Passes 0 for particles (they freeze), but raw dt for camera shake (it dissipates)
+            this.vfxManager.update(currentScaledDt, dt);
+        }
+
+        if (this.progressUI) {
+            this.progressUI.update(dt);
+        }
     }
+
     draw(ctx) {
+        // ==========================================
+        // CAMERA SHAKE BLOCK (World only)
+        // ==========================================
+        ctx.save();
+
+        if (this.vfxManager) {
+            const shake = this.vfxManager.getShakeOffset();
+            ctx.translate(shake.x, shake.y);
+        }
+
         // 1. Draw the game world (Stays rendered in background even if frozen)
         if (this.gameManager.entityManager) {
             this.gameManager.entityManager.draw(ctx);
@@ -161,6 +179,11 @@ update(dt, pointer) {
         if (this.vfxManager) {
             this.vfxManager.draw(ctx);
         }
+
+        ctx.restore();
+        // ==========================================
+        // END CAMERA SHAKE
+        // ==========================================
 
         // 3. Draw Persistent Game UI
         if (this.phase === 'PLAYING' && this.progressUI) {

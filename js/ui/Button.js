@@ -1,10 +1,9 @@
 // js/ui/Button.js
 import { UIConfig } from '../UIConfig.js';
 import { GameConfig } from '../GameConfig.js';
-import { gameEvents, EVENTS } from '../core/EventBus.js'; // NOUVEL IMPORT
+import { gameEvents, EVENTS } from '../core/EventBus.js';
 
 export class Button {
-    // Signature updated to use an optional config object
     constructor(text, x, y, themeKey, onClickCallback, options = {}) {
         this.text = text;
         this.baseX = x;
@@ -18,7 +17,7 @@ export class Button {
         this.height = options.height || defaults.height;
         this.fontSize = options.fontSize || GameConfig.FONT_SIZE_MD;
 
-        // [NOUVEAU] Configuration du son (par défaut: button_interact)
+        // Audio config
         this.sfxId = options.sfxId || 'button_interact';
 
         // Theme selection
@@ -29,11 +28,14 @@ export class Button {
     }
 
     update(pointerX, pointerY, isMouseDown) {
-        // Check AABB collision
+        // [FIX CRITIQUE] On étend la hitbox vers le haut si le bouton est soulevé visuellement.
+        // Cela empêche le bouton de s'éteindre si le joueur remonte sa souris pour le suivre.
+        const hoverRiseOffset = this.isHovered ? UIConfig.ANIMATIONS.BTN_HOVER_RISE : 0;
+
         this.isHovered = (
             pointerX >= this.baseX && 
             pointerX <= this.baseX + this.width &&
-            pointerY >= this.baseY && 
+            pointerY >= this.baseY - hoverRiseOffset && 
             pointerY <= this.baseY + this.height
         );
 
@@ -42,9 +44,7 @@ export class Button {
 
     handleClick(pointerX, pointerY) {
         if (this.isHovered) {
-            // [NOUVEAU] On joue le son de clic assigné avant d'exécuter l'action
             gameEvents.emit(EVENTS.PLAY_SFX, { id: this.sfxId, volume: 0.8 });
-            
             this.onClick();
             return true;
         }
