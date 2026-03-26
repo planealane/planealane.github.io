@@ -194,7 +194,7 @@ export class TutorialOverlay {
         // SCREEN 2: GATES SETUP
         // ==========================================
         
-        const gateImage = this.gameManager.assets.getImage('props'); 
+        const gateImage = this.gameManager.assets.getImage('gate'); 
         const configColors = UIConfig.SCREENS.TUTORIAL.COLORS;
 
         const primaryGate = new Gate(centerX - 200, centerY - 50, gateImage, 1);

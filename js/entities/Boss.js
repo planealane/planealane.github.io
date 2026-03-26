@@ -1,5 +1,6 @@
 // js/entities/Boss.js
 import { GameConfig } from '../GameConfig.js';
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Import visuals config
 import { SpriteEntity, drawFloatingText } from './Entity.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
 
@@ -7,8 +8,8 @@ export class Boss extends SpriteEntity {
     constructor(x, y, image, maxHp, bossDef) {
         const frame = { sx: 0, sy: 0, sWidth: image.width, sHeight: image.height };
         
-        // 1. Calculate base dimensions using the logical game configuration
-        const baseWidth = bossDef.width || GameConfig.BOSS_BASE_WIDTH; 
+        // 1. Calculate base dimensions using the visual configuration
+        const baseWidth = bossDef.width || EntityVisualsConfig.BOSS.BASE_WIDTH; 
         const baseHeight = baseWidth * (image.height / image.width);
 
         // 2. Apply scale to LOGICAL dimensions so the physics engine reads them correctly
@@ -16,8 +17,8 @@ export class Boss extends SpriteEntity {
         const physicalWidth = baseWidth * scale;
         const physicalHeight = baseHeight * scale;
 
-        // Initialize SpriteEntity with the correct Z-Index layer
-        super(x, y, physicalWidth, physicalHeight, image, frame, Math.PI, GameConfig.Z_INDEX.BOSS);
+        // Initialize SpriteEntity with the correct Z-Index layer from visual config
+        super(x, y, physicalWidth, physicalHeight, image, frame, Math.PI, EntityVisualsConfig.Z_INDEX.BOSS);
 
         this.speed = GameConfig.SCROLL_SPEED;
         this.hp = maxHp;
@@ -25,7 +26,6 @@ export class Boss extends SpriteEntity {
         this.isBoss = true;
         
         // 3. CRUCIAL: Identify the entity for the collision manager
-        // Add the tags your EntityManager typically looks for
         this.isEnemy = true; 
         this.type = 'enemy'; 
         
@@ -40,7 +40,7 @@ export class Boss extends SpriteEntity {
         gameEvents.emit(EVENTS.PLAY_SFX, { id: 'hit', volume: 0.8 });
     }
 
-update(dt) {
+    update(dt) {
         // Smooth return to normal size (Lerp)
         if (this.currentScale < this.baseScale) {
             this.currentScale += (this.baseScale - this.currentScale) * 0.1;
@@ -49,7 +49,7 @@ update(dt) {
         // Move downward
         this.y += this.speed * dt;
         
-        // [CRITICAL FIX] Use GameConfig.CANVAS.HEIGHT to properly despawn
+        // Use GameConfig.CANVAS.HEIGHT to properly despawn
         if (this.y > GameConfig.CANVAS.HEIGHT + 300) {
             this.markForDeletion = true;
         }
@@ -71,8 +71,8 @@ update(dt) {
         );
         ctx.restore();
 
-        // Render HP above the boss
-        const textY = this.y - (this.height / 2) - 40;
+        // Render HP using the offset from the visual configuration
+        const textY = this.y - (this.height / 2) + EntityVisualsConfig.BOSS.HP_OFFSET_Y;
         drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#8e44ad');
     }
 }

@@ -1,13 +1,17 @@
 // js/entities/SuperCollectible.js
 import { GameConfig } from '../GameConfig.js';
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Import visuals config
 import { Player } from './Player.js';
 import { BaseItem } from './BaseItem.js';
 
 export class SuperCollectible extends BaseItem {
     constructor(x, y) {
-        const size = GameConfig.SHIP_SIZE * 0.8;
+        // [MODIFIED] Use PLAYER.SIZE from visual config instead of SHIP_SIZE
+        const size = EntityVisualsConfig.PLAYER.SIZE * 0.8;
+        
         // image and frame are null because this entity uses procedural rendering
-        super(x, y, size, size, null, null, GameConfig.Z_INDEX.COLLECTIBLE + 1);
+        // [MODIFIED] Use Z_INDEX.COLLECTIBLE from visual config
+        super(x, y, size, size, null, null, EntityVisualsConfig.Z_INDEX.COLLECTIBLE + 1);
         
         this.magnetSpeed = 0.8; 
         
@@ -68,6 +72,7 @@ export class SuperCollectible extends BaseItem {
         this.x += this.vx * dt;
         this.y += this.vy * dt;
     }
+    
     draw(ctx) {
         // ==========================================
         // 1. DRAW PARTICLES (WORLD SPACE)

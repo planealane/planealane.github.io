@@ -2,7 +2,7 @@
 import { State } from './State.js';
 import { Button } from '../ui/Button.js';
 import { UIConfig } from '../UIConfig.js';
-import { GameConfig } from '../GameConfig.js'; // Conservé uniquement pour la logique (ex: PLAYER_BASE_VARIANT)
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Replaced GameConfig
 import { ShipsAtlas } from '../utils/Atlas.js';
 import { drawAlgorithmicTrail } from '../utils/VFXUtils.js';
 
@@ -17,7 +17,7 @@ export class StartState extends State {
         this.titleImage = this.gameManager.assets.getImage('title');
         this.playerImage = this.gameManager.assets.getImage('ships');
 
-        // Variables pour la chorégraphie de transition
+        // Variables for transition choreography
         this.isTransitioning = false;
         this.transitionStartTime = 0;
         
@@ -28,7 +28,7 @@ export class StartState extends State {
 
     initUI() {
         const layout = UIConfig.SCREENS.START;
-        const typo = UIConfig.TYPOGRAPHY; // Raccourci typo
+        const typo = UIConfig.TYPOGRAPHY; // Typo shortcut
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
         const centerX = width / 2;
@@ -38,7 +38,7 @@ export class StartState extends State {
         const playBtnY = height * layout.PLAY_BTN_Y_PERCENTAGE;
 
         this.startButton = new Button(
-            layout.TEXT.PLAY_BTN, // 🔄 Texte centralisé
+            layout.TEXT.PLAY_BTN, // 🔄 Centralized text
             centerX - playWidth / 2, 
             playBtnY, 
             'start', 
@@ -46,7 +46,7 @@ export class StartState extends State {
             { 
                 width: playWidth, 
                 height: playHeight,
-                fontSize: typo.SIZE_MD * 1.5, // 🔄 Utilisation de UIConfig au lieu de GameConfig
+                fontSize: typo.SIZE_MD * 1.5, // 🔄 Using UIConfig instead of GameConfig
                 sfxId: 'game_start'
             }
         );
@@ -67,7 +67,7 @@ export class StartState extends State {
     update(dt, pointer) {
         if (this.isTransitioning) {
             const elapsed = performance.now() - this.transitionStartTime;
-            if (elapsed >= UIConfig.SCREENS.START.TRANSITION_MS) { // 🔄 Centralisé dans START
+            if (elapsed >= UIConfig.SCREENS.START.TRANSITION_MS) { // 🔄 Centralized in START
                 this.gameManager.changeState('PLAY');
             }
             return; 
@@ -95,7 +95,7 @@ export class StartState extends State {
         const layout = UIConfig.SCREENS.START;
         const anims = UIConfig.ANIMATIONS;
 
-        // --- CALCUL DES DÉCALAGES DE TRANSITION ---
+        // --- TRANSITION OFFSETS CALCULATION ---
         let titleOffsetY = 0;
         let buttonsOffsetY = 0;
         let planeOffsetY = 0;
@@ -105,13 +105,13 @@ export class StartState extends State {
             const elapsed = time - this.transitionStartTime;
             const progress = Math.min(1, elapsed / layout.TRANSITION_MS);
 
-            // 1. Le titre monte et les boutons descendent
+            // 1. Title goes up and buttons go down
             const UIProgress = Math.min(1, progress / 0.40);
             const UIEase = UIProgress * UIProgress; 
             titleOffsetY = -UIEase * (height * 0.5); 
             buttonsOffsetY = UIEase * (height * 0.5); 
 
-            // 2. L'avion prend de l'élan puis s'envole
+            // 2. Plane gathers momentum (squats) then takes off
             if (progress < 0.40) {
                 const squatProgress = progress / 0.40;
                 planeOffsetY = Math.sin(squatProgress * Math.PI) * layout.LAYOUT.SQUAT_AMPLITUDE; // 🔄 Variable
@@ -121,15 +121,15 @@ export class StartState extends State {
                 planeOffsetY = -takeoffEase * (height * 1.2); 
             }
 
-            // 3. Fondu au noir
+            // 3. Fade to black
             if (progress > 0.60) {
                 fadeAlpha = (progress - 0.60) / 0.40;
             }
         }
 
-        // --- DESSIN DE LA SCÈNE ---
+        // --- SCENE DRAWING ---
 
-        // 1. Arrière-plan
+        // 1. Background
         if (this.bgImage) {
             ctx.drawImage(this.bgImage, 0, 0, width, height);
         } else {
@@ -137,7 +137,7 @@ export class StartState extends State {
             ctx.fillRect(0, 0, width, height);
         }
 
-        // 2. Titre
+        // 2. Title
         let staticTitleBottomY = height * layout.TITLE_Y_PERCENTAGE; 
         if (this.titleImage) {
             const maxWidth = width * layout.LAYOUT.TITLE_MAX_WIDTH_PCT; // 🔄 Variable
@@ -153,13 +153,13 @@ export class StartState extends State {
             staticTitleBottomY += scaledHeight; 
         }
 
-        // 3. Avion et particules
+        // 3. Plane and particles
         if (this.playerImage) {
-            // Seule utilisation de GameConfig ici (logique pure)
-            const safeIndex = GameConfig.PLAYER_BASE_VARIANT % ShipsAtlas.PLAYER_VARIANTS;
+            // [MODIFIED] Fetching the base variant from EntityVisualsConfig instead of GameConfig
+            const safeIndex = EntityVisualsConfig.PLAYER.BASE_VARIANT % ShipsAtlas.PLAYER_VARIANTS;
             const frame = ShipsAtlas.getFrame(safeIndex, this.playerImage.width, this.playerImage.height);
             
-            // 🔄 Taille gérée par UIConfig maintenant !
+            // 🔄 Size is now managed by UIConfig!
             const displaySize = layout.TITLE_PLAYER_SIZE; 
             
             const spriteX = width / 2 - displaySize / 2;
@@ -175,7 +175,7 @@ export class StartState extends State {
             );
         }
 
-        // 4. Boutons
+        // 4. Buttons
         this.buttons.forEach(btn => {
             const originalY = btn.baseY;
             btn.baseY += buttonsOffsetY;
@@ -183,7 +183,7 @@ export class StartState extends State {
             btn.baseY = originalY; 
         });
 
-        // 5. Fondu final
+        // 5. Final fade
         if (fadeAlpha > 0) {
             ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
             ctx.fillRect(0, 0, width, height);

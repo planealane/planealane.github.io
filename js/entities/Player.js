@@ -1,5 +1,6 @@
 // js/entities/Player.js
 import { GameConfig } from '../GameConfig.js';
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Import visuals config
 import { ShipsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity, drawFloatingText } from './Entity.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
@@ -9,12 +10,12 @@ import { drawAlgorithmicTrail } from '../utils/VFXUtils.js';
 import { WeaponConfig } from '../config/WeaponConfig.js';
 
 export class Player extends SpriteEntity {
-    constructor(image, variantIndex = GameConfig.PLAYER_BASE_VARIANT) {
+    constructor(image, variantIndex = EntityVisualsConfig.PLAYER.BASE_VARIANT) {
         const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
-        // Spawn using GameConfig.CANVAS dimensions
-        super(GameConfig.CANVAS.WIDTH / 2, GameConfig.CANVAS.HEIGHT - 300, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, 0, GameConfig.Z_INDEX.PLAYER);
+        // Spawn using GameConfig.CANVAS dimensions and visual configuration sizing/layering
+        super(GameConfig.CANVAS.WIDTH / 2, GameConfig.CANVAS.HEIGHT - 300, EntityVisualsConfig.PLAYER.SIZE, EntityVisualsConfig.PLAYER.SIZE, image, frame, 0, EntityVisualsConfig.Z_INDEX.PLAYER);
         this.currentVariant = safeIndex;
 
         // ==========================================
@@ -43,6 +44,7 @@ export class Player extends SpriteEntity {
             new PrimaryWeapon(WeaponConfig.BASE.PRIMARY),
             new SecondaryWeapon(WeaponConfig.BASE.SECONDARY)
         ];
+        
         // Physics for visual banking (tilting) when moving horizontally
         this.targetAngle = 0;
         this.maxTilt = 0.35;
@@ -58,8 +60,8 @@ export class Player extends SpriteEntity {
     }
 
     /**
-         * Triggers the transformation sequence and plays the sound ONCE.
-         */
+     * Triggers the transformation sequence and plays the sound ONCE.
+     */
     setVariant(variantIndex) {
         const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
 
@@ -143,7 +145,8 @@ export class Player extends SpriteEntity {
         );
 
         super.draw(ctx);
-        const textY = this.y + (this.height / 2) + 25;
+        // Uses the configured visual offset for the HP text above the player
+        const textY = this.y + (this.height / 2) + EntityVisualsConfig.PLAYER.HP_OFFSET_Y;
         drawFloatingText(ctx, `${Math.floor(this.stats.hp)}`, this.x, textY, '#2ecc71');
     }
 

@@ -1,5 +1,6 @@
 // js/entities/HomingProjectile.js
 import { GameConfig } from '../GameConfig.js';
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Import the visual config
 import { PropsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity } from './Entity.js';
 import { Enemy } from './Enemy.js';
@@ -9,13 +10,13 @@ export class HomingProjectile extends SpriteEntity {
     constructor(x, y, damage, speed, turnFactor, image, initialAngle, spawnDelay = 0) {
         const frame = PropsAtlas.projectiles[4];
 
-        // 1. Calcul dans une constante locale (pas de 'this')
-        const targetSize = GameConfig.PROJECTILE_SIZE * 0.8;
+        // 1. Calculate local constant using EntityVisualsConfig instead of GameConfig
+        const targetSize = EntityVisualsConfig.PROJECTILE.SIZE * 0.8;
 
-        // 2. Initialisation du parent avec 0, 0
-        super(x, y, 0, 0, image, frame, 0, GameConfig.Z_INDEX.PROJECTILE);
+        // 2. Initialize the parent with 0, 0 width/height, and the correct Z_INDEX from visual config
+        super(x, y, 0, 0, image, frame, 0, EntityVisualsConfig.Z_INDEX.PROJECTILE);
 
-        // 3. Maintenant on a le droit d'utiliser 'this'
+        // 3. Setup core physics and stats
         this.targetSize = targetSize;
         this.damage = damage;
         this.speed = speed;
@@ -31,7 +32,7 @@ export class HomingProjectile extends SpriteEntity {
     }
 
     update(dt, playerX, entityManager) {
-        // 1. Handle spawn delay
+        // 1. Handle spawn delay (dormant state)
         if (this.spawnDelay > 0) {
             this.spawnDelay -= dt;
 
@@ -40,7 +41,7 @@ export class HomingProjectile extends SpriteEntity {
                 this.width = this.targetSize;
                 this.height = this.targetSize;
             } else {
-                return; // Stay dormant
+                return; // Stay dormant, skip the rest of the update
             }
         }
 
@@ -67,16 +68,23 @@ export class HomingProjectile extends SpriteEntity {
             }
         }
 
+        // Apply velocities to position
         this.x += this.vx * dt;
         this.y += this.vy * dt;
+        
+        // Orient the sprite towards its movement vector
         this.angle = Math.atan2(this.vy, this.vx) + (Math.PI / 2);
 
+        // Boundary check using GameConfig.CANVAS for despawning
         if (this.y < -200 || this.y > GameConfig.CANVAS.HEIGHT + 200 ||
             this.x < -200 || this.x > GameConfig.CANVAS.WIDTH + 200) {
             this.markForDeletion = true;
         }
     }
 
+    /**
+     * Finds the closest valid enemy target within screen boundaries.
+     */
     getNearestTarget(entities) {
         let nearest = null;
         let minDistance = Infinity;
@@ -104,11 +112,15 @@ export class HomingProjectile extends SpriteEntity {
         // Do not render if still dormant
         if (this.spawnDelay > 0) return;
 
+        // Render the projectile sprite
         super.draw(ctx);
 
+        // Draw the target reticle overlay on the locked enemy
         if (this.hasLockedOn && this.lockedTarget && !this.lockedTarget.markForDeletion) {
             const reticleFrame = PropsAtlas.target_reticle;
-            const reticleSize = GameConfig.SHIP_SIZE;
+            
+            // Use EntityVisualsConfig to determine the size of the reticle (matches ship size)
+            const reticleSize = EntityVisualsConfig.PLAYER.SIZE; 
 
             ctx.save();
             ctx.translate(this.lockedTarget.x, this.lockedTarget.y);

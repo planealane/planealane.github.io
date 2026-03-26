@@ -7,16 +7,6 @@ export const GameConfig = {
         HEIGHT: 1920
     },
 
-    Z_INDEX: {
-        BACKGROUND: 0,
-        ENEMY: 10,
-        BOSS: 15,
-        PLAYER: 20,
-        COLLECTIBLE: 25,
-        PROJECTILE: 30,
-        VFX: 40,
-        UI: 50
-    },
     // ==========================================
     // MOTEUR & ÉTATS DU JEU
     // ==========================================
@@ -37,19 +27,10 @@ export const GameConfig = {
     GATE_LANES: [324, 756],            // Coordonnées X pour les portes (centrées entre les lignes d'ennemis)
 
     // ==========================================
-    // TAILLES DE BASE DES ENTITÉS (Hitboxes en pixels)
-    // ==========================================
-    SHIP_SIZE: 200,         // Hitbox pour les vaisseaux standards
-    PROJECTILE_SIZE: 64,    // Hitbox pour les balles
-    BOSS_BASE_WIDTH: 300,   // Largeur de base pour les calculs d'échelle des boss
-    GATE_BASE_WIDTH: 280,   // Largeur de la hitbox pour les portes d'amélioration
-
-    // ==========================================
-    // CONFIGURATION DU JOUEUR
+    // CONFIGURATION DU JOUEUR (Logique Pure)
     // ==========================================
     PLAYER_BASE_HP: 100,         // Points de vie initiaux
     PLAYER_BASE_DMG: 10,         // Config legacy (remplacée par les stats d'armes)
-    PLAYER_BASE_VARIANT: 10,     // Index de sprite initial pour le vaisseau
 
     // ==========================================
     // ÉQUILIBRAGE & PROGRESSION (Formules HP)
@@ -87,7 +68,7 @@ export const GameConfig = {
     BOSS_DEFINITIONS: {
         'miniboss': {
             assetKey: 'miniboss', 
-            scale: 2.0            // Multiplicateur de hitbox appliqué à BOSS_BASE_WIDTH
+            scale: 2.0            // Multiplicateur appliqué au BASE_WIDTH
         },
         'boss': {
             assetKey: 'boss',

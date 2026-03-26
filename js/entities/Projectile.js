@@ -1,5 +1,5 @@
 // js/entities/Projectile.js
-import { GameConfig } from '../GameConfig.js';
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Import visuals config
 import { PropsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity } from './Entity.js';
 
@@ -7,9 +7,10 @@ export class Projectile extends SpriteEntity {
     constructor(x, y, damage, speed, image) {
         // Fetch first projectile (row 1, col 1)
         const frame = PropsAtlas.projectiles[0]; 
-        const size = GameConfig.PROJECTILE_SIZE;
+        const size = EntityVisualsConfig.PROJECTILE.SIZE;
 
-        super(x, y, size, size, image, frame, 0, GameConfig.Z_INDEX.PROJECTILE);
+        // Use sizing and layering from the visual configuration
+        super(x, y, size, size, image, frame, 0, EntityVisualsConfig.Z_INDEX.PROJECTILE);
         
         this.speed = -speed; 
         this.damage = damage;

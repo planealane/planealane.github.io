@@ -1,5 +1,6 @@
-// js/Enemy.js
+// js/entities/Enemy.js
 import { GameConfig } from '../GameConfig.js';
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Import visuals config
 import { ShipsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity, drawFloatingText } from './Entity.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
@@ -10,8 +11,8 @@ export class Enemy extends SpriteEntity {
         const safeIndex = ShipsAtlas.PLAYER_VARIANTS + (variantIndex % ShipsAtlas.ENEMY_VARIANTS);
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
-        // Enemies face downward (Math.PI)
-        super(x, y, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, Math.PI, GameConfig.Z_INDEX.ENEMY);
+        // Enemies face downward (Math.PI). Uses visual config for size and z-index.
+        super(x, y, EntityVisualsConfig.ENEMY.SIZE, EntityVisualsConfig.ENEMY.SIZE, image, frame, Math.PI, EntityVisualsConfig.Z_INDEX.ENEMY);
         
         this.speed = GameConfig.SCROLL_SPEED;
 
@@ -63,7 +64,7 @@ export class Enemy extends SpriteEntity {
         if (this.y > GameConfig.CANVAS.HEIGHT + 200) this.markForDeletion = true;
     }
 
-draw(ctx) {
+    draw(ctx) {
         // Draw the trail behind the enemy
         drawAlgorithmicTrail(
             ctx, 
@@ -103,7 +104,7 @@ draw(ctx) {
 
         ctx.restore();
 
-        // Draw HP text
+        // Draw HP text. Using standard offset calculation as there is no specific visual config yet.
         const textY = this.y - (this.height / 2) - 25;
         drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#e74c3c');
     }
