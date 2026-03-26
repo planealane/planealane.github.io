@@ -105,20 +105,21 @@ export class SpawnManager {
 
         const selectedRows = availableRows.sort(() => 0.5 - Math.random()).slice(0, enemyCount);
 
-    selectedRows.forEach(rowIndex => {
-        const randomLaneIndex = Math.floor(Math.random() * GameConfig.ENEMY_LANES.length);
-        const x = GameConfig.ENEMY_LANES[randomLaneIndex];
-        const y = startY - (rowIndex * rowSpacing);
+        selectedRows.forEach(rowIndex => {
+            const randomLaneIndex = Math.floor(Math.random() * GameConfig.ENEMY_LANES.length);
+            const x = GameConfig.ENEMY_LANES[randomLaneIndex];
+            const y = startY - (rowIndex * rowSpacing);
 
-        // Calculate HP using the polynomial curve based on current block index
-        const scaledHp = GameConfig.calculateEnemyHp(this.blocksSpawned);
-        
-        entityManager.addEntity(new Enemy(x, y, entityManager.assets.getImage('ships'), scaledHp));
-    });
+            // Calculate HP using the polynomial curve based on current block index
+            const scaledHp = GameConfig.calculateEnemyHp(this.blocksSpawned);
+            
+            entityManager.addEntity(new Enemy(x, y, entityManager.assets.getImage('ships'), scaledHp));
+        });
     }
 
     spawnBoss(entityManager, encounterData, yPosition) {
-        const x = GameConfig.CANVAS_WIDTH / 2;
+        // [CRITICAL FIX] Changed CANVAS_WIDTH to GAME_WIDTH
+        const x = GameConfig.CANVAS.WIDTH / 2;
         
         const bossDef = GameConfig.getBossDef(encounterData);
         
@@ -142,8 +143,8 @@ export class SpawnManager {
         this.spawnLoot(payload.entityManager, payload.x, payload.y);
     }
 
-spawnLoot(entityManager, x, y) {
-        // [MODIFIÉ] On pioche dans le nouveau dictionnaire des portails
+    spawnLoot(entityManager, x, y) {
+        // [MODIFIED] Draw from the newly restructured UpgradesConfig portals dictionary
         const upgradeKeys = Object.keys(UpgradesConfig.PORTALS);
         const selectedKey = upgradeKeys[Math.floor(Math.random() * upgradeKeys.length)];
         

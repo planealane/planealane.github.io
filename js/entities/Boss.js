@@ -40,7 +40,7 @@ export class Boss extends SpriteEntity {
         gameEvents.emit(EVENTS.PLAY_SFX, { id: 'hit', volume: 0.8 });
     }
 
-    update(dt) {
+update(dt) {
         // Smooth return to normal size (Lerp)
         if (this.currentScale < this.baseScale) {
             this.currentScale += (this.baseScale - this.currentScale) * 0.1;
@@ -49,8 +49,8 @@ export class Boss extends SpriteEntity {
         // Move downward
         this.y += this.speed * dt;
         
-        // [CRITICAL FIX] Use GAME_HEIGHT to properly despawn the boss if it leaves the screen
-        if (this.y > GameConfig.GAME_HEIGHT + 300) {
+        // [CRITICAL FIX] Use GameConfig.CANVAS.HEIGHT to properly despawn
+        if (this.y > GameConfig.CANVAS.HEIGHT + 300) {
             this.markForDeletion = true;
         }
     }

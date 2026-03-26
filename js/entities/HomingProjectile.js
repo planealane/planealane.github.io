@@ -71,8 +71,8 @@ export class HomingProjectile extends SpriteEntity {
         this.y += this.vy * dt;
         this.angle = Math.atan2(this.vy, this.vx) + (Math.PI / 2);
 
-        if (this.y < -200 || this.y > GameConfig.CANVAS_HEIGHT + 200 ||
-            this.x < -200 || this.x > GameConfig.CANVAS_WIDTH + 200) {
+        if (this.y < -200 || this.y > GameConfig.CANVAS.HEIGHT + 200 ||
+            this.x < -200 || this.x > GameConfig.CANVAS.WIDTH + 200) {
             this.markForDeletion = true;
         }
     }
@@ -87,7 +87,7 @@ export class HomingProjectile extends SpriteEntity {
             if (entity instanceof Enemy || entity instanceof Boss) {
                 // Prevent targeting enemies that haven't entered the screen yet, 
                 // or have already passed the bottom bounds.
-                if (entity.y < 0 || entity.y > GameConfig.CANVAS_HEIGHT) continue;
+                if (entity.y < 0 || entity.y > GameConfig.CANVAS.HEIGHT) continue;
 
                 const dist = Math.hypot(entity.x - this.x, entity.y - this.y);
                 if (dist < minDistance) {

@@ -60,7 +60,7 @@ export class Enemy extends SpriteEntity {
 
         // Movement
         this.y += this.speed * dt;
-        if (this.y > GameConfig.CANVAS_HEIGHT + 200) this.markForDeletion = true;
+        if (this.y > GameConfig.CANVAS.HEIGHT + 200) this.markForDeletion = true;
     }
 
 draw(ctx) {

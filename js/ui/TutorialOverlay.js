@@ -5,6 +5,17 @@ import { Player } from '../entities/Player.js';
 import { Enemy } from '../entities/Enemy.js';
 import { Gate } from '../entities/Gate.js';
 
+// ============================================================================
+// UTILITY: EASING FUNCTION
+// ============================================================================
+/**
+ * Smooth ease-out function (Quartic). 
+ * Starts fast, then smoothly decelerates to 0.
+ */
+function easeOutQuart(x) {
+    return 1 - Math.pow(1 - x, 4);
+}
+
 export class TutorialOverlay {
 
     // ============================================================================
@@ -19,6 +30,45 @@ export class TutorialOverlay {
         this.currentScreen = 1; 
         this.buttons = [];
         this.wasPointerDown = false;
+
+        // --- ANIMATION STATE & CONFIGURATION ---
+        this.animTimer = 0; 
+        
+        this.animConfig = {
+            slideDuration: 1000,  // [MODIFIED] Increased to 1 second for a much smoother glide
+            bgFadeDuration: 800,  
+            
+            // [MODIFIED] Extended delays with clear pauses between elements
+            delaysScreen1: {
+                title: 400,       
+                screen1: 900,     // Solid pause after title
+                legend1: 1200,    // Wait for screen 1 to settle a bit
+                screen2: 1700,    // Big pause before secondary screen enters
+                legend2: 2000,    
+                button: 2600      // Button fades in last
+            },
+            
+            // [MODIFIED] Spaced out the Screen 2 choreography as well
+            delaysScreen2: {
+                title: 0,
+                screen1: 400,
+                legend1: 700,
+                screen2: 1200,
+                legend2: 1500,
+                button: 2100
+            }
+        };
+
+        // Holds the current calculated offsets updated every frame
+        this.animState = {
+            bgOpacity: 0,
+            titleOffsetX: 0,
+            screen1OffsetX: 0,
+            legend1OffsetX: 0,
+            screen2OffsetX: 0,
+            legend2OffsetX: 0,
+            buttonOpacity: 0
+        };
 
         this.simulations = {
             primary: {
@@ -38,8 +88,12 @@ export class TutorialOverlay {
     start() {
         this.isActive = true;
         this.currentScreen = 1;
+        this.animTimer = 0; 
         this.initSimulations();
         this.initUI();
+        
+        // [CRITICAL FIX] Force position calculation BEFORE the first draw() call to prevent the frame-1 flash
+        this.updateAnimationChoreography(); 
     }
 
     initUI() {
@@ -61,7 +115,10 @@ export class TutorialOverlay {
                 centerX - btnWidth / 2, btnY, 'menu',
                 () => {
                     this.currentScreen = 2;
+                    this.animTimer = 0; 
                     this.initUI(); 
+                    // [CRITICAL FIX] Prevent the flash when switching to screen 2
+                    this.updateAnimationChoreography(); 
                 },
                 { width: btnWidth, height: btnHeight, fontSize: btnFontSize }
             ));
@@ -138,7 +195,6 @@ export class TutorialOverlay {
         // ==========================================
         
         const gateImage = this.gameManager.assets.getImage('props'); 
-        const configText = UIConfig.SCREENS.TUTORIAL.TEXT;
         const configColors = UIConfig.SCREENS.TUTORIAL.COLORS;
 
         const primaryGate = new Gate(centerX - 200, centerY - 50, gateImage, 1);
@@ -167,12 +223,20 @@ export class TutorialOverlay {
         if (!this.isActive) return;
         if (this.gameManager.transitionManager && this.gameManager.transitionManager.isActive) return;
 
-        this.buttons.forEach(btn => btn.update(pointer.x, pointer.y, pointer.isDown));
-        
-        if (pointer.isDown && !this.wasPointerDown) {
-            [...this.buttons].forEach(btn => btn.handleClick(pointer.x, pointer.y));
+        // --- 1. Update Animation Timeline ---
+        this.animTimer += dt;
+        this.updateAnimationChoreography();
+
+        // --- 2. Update Inputs (Only if button is fully visible) ---
+        if (this.animState.buttonOpacity > 0.8) {
+            this.buttons.forEach(btn => btn.update(pointer.x, pointer.y, pointer.isDown));
+            
+            if (pointer.isDown && !this.wasPointerDown) {
+                [...this.buttons].forEach(btn => btn.handleClick(pointer.x, pointer.y));
+            }
         }
 
+        // --- 3. Update Fake Gameplay ---
         if (this.currentScreen === 1) {
             this.updateFakeGameplay(dt, this.simulations.primary);
             this.updateFakeGameplay(dt, this.simulations.secondary);
@@ -181,6 +245,49 @@ export class TutorialOverlay {
         this.wasPointerDown = pointer.isDown;
     }
 
+    /**
+     * Calculates the current position/opacity of all elements based on the timer.
+     */
+    updateAnimationChoreography() {
+        // Background Fade - Only calculate the fade on Screen 1.
+        if (this.currentScreen === 1) {
+            const fadeProgress = Math.min(1, this.animTimer / this.animConfig.bgFadeDuration);
+            this.animState.bgOpacity = fadeProgress * 0.8; 
+        } else {
+            this.animState.bgOpacity = 0.8;
+        }
+
+        // Select the appropriate delays based on the current screen
+        const activeDelays = this.currentScreen === 1 ? this.animConfig.delaysScreen1 : this.animConfig.delaysScreen2;
+
+        // Dynamically use the full screen width to guarantee elements start off-screen
+        const slideOffset = this.gameManager.canvas.width; 
+
+        // Helper to calculate specific offset based on delay
+        const getOffset = (delay, isFromLeft) => {
+            if (this.animTimer < delay) {
+                // Stay fully off-screen until delay is reached
+                return isFromLeft ? -slideOffset : slideOffset;
+            }
+            const progress = Math.min(1, (this.animTimer - delay) / this.animConfig.slideDuration);
+            const eased = easeOutQuart(progress);
+            const startPos = isFromLeft ? -slideOffset : slideOffset;
+            return startPos * (1 - eased); // Approaches 0 as eased approaches 1
+        };
+
+        // Apply Offsets (Title from left, everything else from right)
+        this.animState.titleOffsetX = getOffset(activeDelays.title, true);
+        this.animState.screen1OffsetX = getOffset(activeDelays.screen1, false);
+        this.animState.legend1OffsetX = getOffset(activeDelays.legend1, false);
+        this.animState.screen2OffsetX = getOffset(activeDelays.screen2, false);
+        this.animState.legend2OffsetX = getOffset(activeDelays.legend2, false);
+
+        // Fade in button at the very end
+        const btnProgress = Math.max(0, Math.min(1, (this.animTimer - activeDelays.button) / 300));
+        this.animState.buttonOpacity = btnProgress;
+    }
+
+    // [Fake Gameplay Logic Remains Unchanged]
     updateFakeGameplay(dt, simState) {
         const box = simState.box;
 
@@ -261,50 +368,81 @@ export class TutorialOverlay {
         const config = UIConfig.SCREENS.TUTORIAL;
         const typo = UIConfig.TYPOGRAPHY;
 
-        ctx.fillStyle = config.COLORS.OVERLAY;
+        // 1. Draw animated background overlay
+        ctx.fillStyle = `rgba(0, 0, 0, ${this.animState.bgOpacity})`;
         ctx.fillRect(0, 0, width, height);
 
         if (this.currentScreen === 1) {
+            // Draw Title (from left)
             ctx.fillStyle = config.COLORS.TEXT_MAIN;
             ctx.font = `bold ${typo.SIZE_SM}px ${typo.FAMILY}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(config.TEXT.TITLE_SCREEN_1, width / 2, height * config.LAYOUT.TITLE_Y_PCT);
+            const titleX = (width / 2) + this.animState.titleOffsetX;
+            ctx.fillText(config.TEXT.TITLE_SCREEN_1, titleX, height * config.LAYOUT.TITLE_Y_PCT);
 
-            this.drawFakeGameplay(ctx, this.simulations.primary, config.TEXT.PRIMARY_TITLE, config.TEXT.PRIMARY_DESC);
-            this.drawFakeGameplay(ctx, this.simulations.secondary, config.TEXT.SECONDARY_TITLE, config.TEXT.SECONDARY_DESC);
-        } 
-        else if (this.currentScreen === 2) {
+            // Draw Primary Simulation (from right)
+            ctx.save();
+            ctx.translate(this.animState.screen1OffsetX, 0);
+            this.drawFakeGameplay(ctx, this.simulations.primary, config.TEXT.PRIMARY_TITLE, config.TEXT.PRIMARY_DESC, this.animState.legend1OffsetX);
+            ctx.restore();
+
+            // Draw Secondary Simulation (from right, slightly later)
+            ctx.save();
+            ctx.translate(this.animState.screen2OffsetX, 0);
+            this.drawFakeGameplay(ctx, this.simulations.secondary, config.TEXT.SECONDARY_TITLE, config.TEXT.SECONDARY_DESC, this.animState.legend2OffsetX);
+            ctx.restore();
+
+        } else if (this.currentScreen === 2) {
+            // Draw Title (from left)
             ctx.fillStyle = config.COLORS.TEXT_MAIN;
             ctx.font = `bold ${typo.SIZE_SM}px ${typo.FAMILY}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(config.TEXT.TITLE_SCREEN_2, width / 2, height * config.LAYOUT.TITLE_SCREEN_2_Y_PCT);
+            const titleX = (width / 2) + this.animState.titleOffsetX;
+            ctx.fillText(config.TEXT.TITLE_SCREEN_2, titleX, height * config.LAYOUT.TITLE_SCREEN_2_Y_PCT);
 
+            // Draw Primary Gate (from right)
+            ctx.save();
+            ctx.translate(this.animState.screen1OffsetX, 0);
             this.simulations.gates.primary.draw(ctx);
-            this.simulations.gates.secondary.draw(ctx);
-
             ctx.font = `bold ${typo.SIZE_SM * 0.6}px ${typo.FAMILY}`;
-            
             ctx.fillStyle = this.simulations.gates.primary.color;
             ctx.fillText(config.TEXT.GATE_PRIMARY_DESC, this.simulations.gates.primary.x, this.simulations.gates.primary.y + config.LAYOUT.GATE_DESC_OFFSET_Y);
+            ctx.restore();
 
+            // Draw Secondary Gate (from right)
+            ctx.save();
+            ctx.translate(this.animState.screen2OffsetX, 0);
+            this.simulations.gates.secondary.draw(ctx);
+            ctx.font = `bold ${typo.SIZE_SM * 0.6}px ${typo.FAMILY}`;
             ctx.fillStyle = this.simulations.gates.secondary.color;
             ctx.fillText(config.TEXT.GATE_SECONDARY_DESC, this.simulations.gates.secondary.x, this.simulations.gates.secondary.y + config.LAYOUT.GATE_DESC_OFFSET_Y);
+            ctx.restore();
         }
 
-        this.buttons.forEach(btn => btn.draw(ctx));
+        // Draw Buttons (fade in)
+        if (this.animState.buttonOpacity > 0) {
+            ctx.save();
+            ctx.globalAlpha = this.animState.buttonOpacity;
+            this.buttons.forEach(btn => btn.draw(ctx));
+            ctx.restore();
+        }
     }
 
-    drawFakeGameplay(ctx, simState, title, description) {
+    drawFakeGameplay(ctx, simState, title, description, textOffset = 0) {
         const box = simState.box;
         const config = UIConfig.SCREENS.TUTORIAL;
         const typo = UIConfig.TYPOGRAPHY;
 
+        // Draw the simulation box
         ctx.strokeStyle = config.COLORS.BOX_BORDER;
         ctx.lineWidth = config.LAYOUT.BOX_BORDER_WIDTH;
         ctx.strokeRect(box.x, box.y, box.w, box.h);
         
+        // Draw the text (legend) with an additional offset so it arrives *after* the box
+        ctx.save();
+        ctx.translate(textOffset, 0);
         ctx.textAlign = 'center';
         ctx.fillStyle = config.COLORS.TEXT_MAIN;
         ctx.font = `bold ${typo.SIZE_SM * 1.1}px ${typo.FAMILY}`;
@@ -313,7 +451,9 @@ export class TutorialOverlay {
         ctx.fillStyle = config.COLORS.TEXT_DESC;
         ctx.font = `${typo.SIZE_SM * 0.8}px ${typo.FAMILY}`;
         ctx.fillText(description, box.x + box.w / 2, box.y + box.h + config.LAYOUT.DESC_OFFSET_Y_2);
+        ctx.restore();
 
+        // Clip and draw the simulation contents
         ctx.save(); 
         ctx.beginPath();
         ctx.rect(box.x, box.y, box.w, box.h); 
