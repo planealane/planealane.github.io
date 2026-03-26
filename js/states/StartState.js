@@ -2,7 +2,7 @@
 import { State } from './State.js';
 import { Button } from '../ui/Button.js';
 import { UIConfig } from '../UIConfig.js';
-import { GameConfig } from '../GameConfig.js';
+import { GameConfig } from '../GameConfig.js'; // Conservé uniquement pour la logique (ex: PLAYER_BASE_VARIANT)
 import { ShipsAtlas } from '../utils/Atlas.js';
 import { drawAlgorithmicTrail } from '../utils/VFXUtils.js';
 
@@ -17,11 +17,10 @@ export class StartState extends State {
         this.titleImage = this.gameManager.assets.getImage('title');
         this.playerImage = this.gameManager.assets.getImage('ships');
 
-        // Variables for the transition choreography
+        // Variables pour la chorégraphie de transition
         this.isTransitioning = false;
         this.transitionStartTime = 0;
         
-        // Array to easily manage future multiple buttons
         this.buttons = [];
         this.initUI();
         this.gameManager.audioManager.playMusic('title-theme', 0.5, 1000);
@@ -29,16 +28,17 @@ export class StartState extends State {
 
     initUI() {
         const layout = UIConfig.SCREENS.START;
+        const typo = UIConfig.TYPOGRAPHY; // Raccourci typo
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
         const centerX = width / 2;
 
-        const playWidth = Math.min(UIConfig.BUTTON_DEFAULTS.width * layout.PLAY_BTN_SCALE, width * 0.9);
-        const playHeight = UIConfig.BUTTON_DEFAULTS.height * layout.PLAY_BTN_SCALE;
+        const playWidth = Math.min(UIConfig.BUTTONS.DEFAULTS.width * layout.PLAY_BTN_SCALE, width * 0.9);
+        const playHeight = UIConfig.BUTTONS.DEFAULTS.height * layout.PLAY_BTN_SCALE;
         const playBtnY = height * layout.PLAY_BTN_Y_PERCENTAGE;
 
         this.startButton = new Button(
-            'PLAY', 
+            layout.TEXT.PLAY_BTN, // 🔄 Texte centralisé
             centerX - playWidth / 2, 
             playBtnY, 
             'start', 
@@ -46,7 +46,7 @@ export class StartState extends State {
             { 
                 width: playWidth, 
                 height: playHeight,
-                fontSize: GameConfig.FONT_SIZE_MD * 1.5,
+                fontSize: typo.SIZE_MD * 1.5, // 🔄 Utilisation de UIConfig au lieu de GameConfig
                 sfxId: 'game_start'
             }
         );
@@ -65,10 +65,9 @@ export class StartState extends State {
     // ============================================================================
 
     update(dt, pointer) {
-        // If transitioning, stop calculating hovers and manage the timer
         if (this.isTransitioning) {
             const elapsed = performance.now() - this.transitionStartTime;
-            if (elapsed >= UIConfig.ANIMATIONS.START_TRANSITION_MS) {
+            if (elapsed >= UIConfig.SCREENS.START.TRANSITION_MS) { // 🔄 Centralisé dans START
                 this.gameManager.changeState('PLAY');
             }
             return; 
@@ -77,7 +76,6 @@ export class StartState extends State {
         const time = performance.now();
         const anims = UIConfig.ANIMATIONS;
 
-        // Standard update
         this.buttons.forEach(btn => {
             btn.baseY = btn.anchorY + Math.sin(time * anims.BTN_BREATH_SPEED) * anims.BTN_BREATH_AMPLITUDE;
             btn.update(pointer.x, pointer.y, pointer.isDown);
@@ -97,7 +95,7 @@ export class StartState extends State {
         const layout = UIConfig.SCREENS.START;
         const anims = UIConfig.ANIMATIONS;
 
-        // --- CALCULATING TRANSITION OFFSETS ---
+        // --- CALCUL DES DÉCALAGES DE TRANSITION ---
         let titleOffsetY = 0;
         let buttonsOffsetY = 0;
         let planeOffsetY = 0;
@@ -105,44 +103,44 @@ export class StartState extends State {
 
         if (this.isTransitioning) {
             const elapsed = time - this.transitionStartTime;
-            const progress = Math.min(1, elapsed / anims.START_TRANSITION_MS);
+            const progress = Math.min(1, elapsed / layout.TRANSITION_MS);
 
-            // 1. Title moves up and Buttons move down
+            // 1. Le titre monte et les boutons descendent
             const UIProgress = Math.min(1, progress / 0.40);
             const UIEase = UIProgress * UIProgress; 
             titleOffsetY = -UIEase * (height * 0.5); 
             buttonsOffsetY = UIEase * (height * 0.5); 
 
-            // 2. Plane builds momentum then shoots up
+            // 2. L'avion prend de l'élan puis s'envole
             if (progress < 0.40) {
                 const squatProgress = progress / 0.40;
-                planeOffsetY = Math.sin(squatProgress * Math.PI) * 60; 
+                planeOffsetY = Math.sin(squatProgress * Math.PI) * layout.LAYOUT.SQUAT_AMPLITUDE; // 🔄 Variable
             } else {
                 const takeoffProgress = (progress - 0.40) / 0.60;
                 const takeoffEase = Math.pow(takeoffProgress, 3); 
                 planeOffsetY = -takeoffEase * (height * 1.2); 
             }
 
-            // 3. Fade to black
+            // 3. Fondu au noir
             if (progress > 0.60) {
                 fadeAlpha = (progress - 0.60) / 0.40;
             }
         }
 
-        // --- SCENE DRAWING ---
+        // --- DESSIN DE LA SCÈNE ---
 
-        // 1. Background
+        // 1. Arrière-plan
         if (this.bgImage) {
             ctx.drawImage(this.bgImage, 0, 0, width, height);
         } else {
-            ctx.fillStyle = '#111';
+            ctx.fillStyle = layout.COLORS.FALLBACK_BG; // 🔄 Variable
             ctx.fillRect(0, 0, width, height);
         }
 
-        // 2. Title
+        // 2. Titre
         let staticTitleBottomY = height * layout.TITLE_Y_PERCENTAGE; 
         if (this.titleImage) {
-            const maxWidth = width * 0.8;
+            const maxWidth = width * layout.LAYOUT.TITLE_MAX_WIDTH_PCT; // 🔄 Variable
             const scale = Math.min(maxWidth / this.titleImage.width, 1);
             const scaledWidth = this.titleImage.width * scale;
             const scaledHeight = this.titleImage.height * scale;
@@ -155,17 +153,19 @@ export class StartState extends State {
             staticTitleBottomY += scaledHeight; 
         }
 
-        // 3. Plane and particles
+        // 3. Avion et particules
         if (this.playerImage) {
+            // Seule utilisation de GameConfig ici (logique pure)
             const safeIndex = GameConfig.PLAYER_BASE_VARIANT % ShipsAtlas.PLAYER_VARIANTS;
             const frame = ShipsAtlas.getFrame(safeIndex, this.playerImage.width, this.playerImage.height);
-            const displaySize = GameConfig.TITLE_PLAYER_SIZE; 
+            
+            // 🔄 Taille gérée par UIConfig maintenant !
+            const displaySize = layout.TITLE_PLAYER_SIZE; 
             
             const spriteX = width / 2 - displaySize / 2;
             const spriteY = staticTitleBottomY + (height * layout.PLAYER_Y_OFFSET_PERCENTAGE) + planeOffsetY; 
 
-            // Call the shared VFX utility, passing the speed multiplier
-            const speedMultiplier = this.isTransitioning ? 3 : 1;
+            const speedMultiplier = this.isTransitioning ? layout.LAYOUT.TRAIL_SPEED_MULT : 1;
             drawAlgorithmicTrail(ctx, spriteX, spriteY, displaySize, displaySize, time, false, speedMultiplier);
             
             ctx.drawImage(
@@ -175,7 +175,7 @@ export class StartState extends State {
             );
         }
 
-        // 4. Buttons
+        // 4. Boutons
         this.buttons.forEach(btn => {
             const originalY = btn.baseY;
             btn.baseY += buttonsOffsetY;
@@ -183,7 +183,7 @@ export class StartState extends State {
             btn.baseY = originalY; 
         });
 
-        // 5. Overlay fade to black
+        // 5. Fondu final
         if (fadeAlpha > 0) {
             ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
             ctx.fillRect(0, 0, width, height);

@@ -5,10 +5,11 @@ import { Player } from '../entities/Player.js';
 import { SpawnManager } from '../managers/SpawnManager.js';
 import { GameOverOverlay } from '../ui/GameOverOverlay.js';
 import { SuperUpgradeOverlay } from '../ui/SuperUpgradeOverlay.js';
-import { TutorialOverlay } from '../ui/TutorialOverlay.js'; // [NOUVEAU] Import du tuto
+import { TutorialOverlay } from '../ui/TutorialOverlay.js'; 
 import { VFXManager } from '../managers/VFXManager.js';
 import { ProgressUI } from '../ui/ProgressUI.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
+import { UIConfig } from '../UIConfig.js'; // 🔄 Ajout de l'import
 
 export class PlayState extends State {
 
@@ -29,17 +30,17 @@ export class PlayState extends State {
         }
 
         // 2. State configuration
-        // [NOUVEAU] On démarre directement dans la séquence de tutoriel
+        const config = UIConfig.SCREENS.IN_GAME.TIMING; // 🔄 Raccourci de config
+
         this.phase = 'TUTORIAL_SEQUENCE';
         this.gameOverOverlay = new GameOverOverlay(this.gameManager);
 
-        // Initialize the Super Upgrade Overlay
         this.superUpgradeOverlay = new SuperUpgradeOverlay(this.gameManager, (upgradeColor) => {
             this.resumeGameplay(upgradeColor);
         });
 
         this.tutorialOverlay = new TutorialOverlay(this.gameManager, () => {
-            this.phase = 'PLAYING'; // Démarre la vraie partie quand on ferme le tuto
+            this.phase = 'PLAYING'; 
         });
 
         // 3. Initialize the new game world
@@ -64,13 +65,13 @@ export class PlayState extends State {
 
         // 7. Déclencher le fondu d'entrée
         gameEvents.emit(EVENTS.SCREEN_FADE, {
-            duration: 600,
+            duration: config.FADE_IN_DURATION, // 🔄 Centralisé
             startAlpha: 1.0,
             endAlpha: 0.0,
-            color: '#000000'
+            color: config.FADE_IN_COLOR        // 🔄 Centralisé
         });
 
-        this.tutorialStartTimer = 600;
+        this.tutorialStartTimer = config.TUTORIAL_DELAY; // 🔄 Centralisé
     }
 
     exit() {
@@ -89,7 +90,10 @@ export class PlayState extends State {
     onPlayerDead() {
         if (this.phase === 'GAMEOVER_SEQUENCE') return;
         this.phase = 'GAMEOVER_SEQUENCE';
-        this.gameManager.timeScale = 0.25;
+        
+        // 🔄 Centralisation du facteur de ralenti
+        this.gameManager.timeScale = UIConfig.SCREENS.IN_GAME.TIMING.GAMEOVER_TIME_SCALE; 
+        
         this.gameOverOverlay.start();
     }
 
@@ -102,7 +106,7 @@ export class PlayState extends State {
     resumeGameplay(upgradeColor = '#ffffff') {
         if (this.phase === 'UPGRADE_SEQUENCE') {
             gameEvents.emit(EVENTS.SPEED_LINES, {
-                duration: 2500,
+                duration: UIConfig.SCREENS.IN_GAME.TIMING.SPEED_LINES_DURATION, // 🔄 Centralisé
                 color: upgradeColor
             });
         }
@@ -116,6 +120,7 @@ export class PlayState extends State {
     update(dt, pointer) {
         if (dt > 100) return;
 
+        // Code de triche pour changer de vaisseau (peut rester tel quel, utile pour le debug)
         if (this.gameManager.inputManager.isKeyDown('c')) {
             const player = this.gameManager.entityManager.entities.find(ent => ent.constructor.name === 'Player');
             if (player) player.setVariant(player.currentVariant + 1);
@@ -123,6 +128,7 @@ export class PlayState extends State {
 
         let shouldUpdateWorld = false;
         let currentScaledDt = 0;
+        const timingConfig = UIConfig.SCREENS.IN_GAME.TIMING; // 🔄 Raccourci
 
         // Phase Management
         if (this.phase === 'PLAYING') {
@@ -131,8 +137,10 @@ export class PlayState extends State {
         }
         else if (this.phase === 'GAMEOVER_SEQUENCE') {
             const elapsed = performance.now() - this.gameOverOverlay.startTime;
-            if (elapsed <= 2000) {
-                this.gameManager.timeScale = 0.25;
+            
+            // 🔄 Durée du ralenti centralisée
+            if (elapsed <= timingConfig.GAMEOVER_SLOWMO_DURATION) { 
+                this.gameManager.timeScale = timingConfig.GAMEOVER_TIME_SCALE; // 🔄 Centralisé
                 shouldUpdateWorld = true;
                 currentScaledDt = dt * this.gameManager.timeScale;
             } else {
@@ -151,20 +159,18 @@ export class PlayState extends State {
             shouldUpdateWorld = false;
             currentScaledDt = 0;
 
-            // 1. Gérer le délai avant l'affichage
             if (this.tutorialStartTimer > 0) {
                 this.tutorialStartTimer -= dt;
 
-                // Quand le timer atteint 0, on lance enfin le tutoriel
                 if (this.tutorialStartTimer <= 0) {
                     this.tutorialOverlay.start();
                 }
             }
-            // 2. Mettre à jour le tutoriel s'il est actif
             else {
                 this.tutorialOverlay.update(dt, pointer);
             }
         }
+
         // World & Entities Execution
         if (shouldUpdateWorld) {
             const currentWave = this.spawner ? this.spawner.blocksSpawned : 1;

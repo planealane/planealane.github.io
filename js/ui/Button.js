@@ -1,7 +1,7 @@
 // js/ui/Button.js
 import { UIConfig } from '../UIConfig.js';
-import { GameConfig } from '../GameConfig.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
+// 🗑️ GameConfig has been completely removed!
 
 export class Button {
     constructor(text, x, y, themeKey, onClickCallback, options = {}) {
@@ -11,25 +11,26 @@ export class Button {
         this.anchorY = y; 
         this.onClick = onClickCallback;
 
-        // Default dimensions with optional overrides
-        const defaults = UIConfig.BUTTON_DEFAULTS;
+        // Default dimensions with optional overrides mapped to our new UIConfig structure
+        const defaults = UIConfig.BUTTONS.DEFAULTS;
         this.width = options.width || defaults.width;
         this.height = options.height || defaults.height;
-        this.fontSize = options.fontSize || GameConfig.FONT_SIZE_MD;
+        this.fontSize = options.fontSize || UIConfig.TYPOGRAPHY.SIZE_MD;
 
         // Audio config
         this.sfxId = options.sfxId || 'button_interact';
 
-        // Theme selection
-        this.theme = UIConfig.BUTTON_THEMES[themeKey] || UIConfig.BUTTON_THEMES.primary;
+        // Theme selection with fallback to primary
+        const themes = UIConfig.BUTTONS.THEMES;
+        this.theme = themes[themeKey] || themes.primary;
 
         this.isHovered = false;
         this.isPressed = false;
     }
 
     update(pointerX, pointerY, isMouseDown) {
-        // [FIX CRITIQUE] On étend la hitbox vers le haut si le bouton est soulevé visuellement.
-        // Cela empêche le bouton de s'éteindre si le joueur remonte sa souris pour le suivre.
+        // [CRITICAL FIX] Extend the hitbox upwards if the button is visually lifted.
+        // This prevents the hover state from flickering if the player moves the mouse up to follow the button.
         const hoverRiseOffset = this.isHovered ? UIConfig.ANIMATIONS.BTN_HOVER_RISE : 0;
 
         this.isHovered = (
@@ -57,6 +58,7 @@ export class Button {
         let innerYOffset = anims.BTN_INNER_SHIFT; 
         let currentY = this.baseY;
 
+        // Handle visual states (Pressed vs Hovered)
         if (this.isPressed) {
             innerColor = this.theme.click;
             innerYOffset = -anims.BTN_INNER_SHIFT; 
@@ -67,15 +69,15 @@ export class Button {
 
         ctx.save();
 
-        const radius = UIConfig.BUTTON_DEFAULTS.cornerRadius;
+        const radius = UIConfig.BUTTONS.DEFAULTS.cornerRadius;
 
-        // 1. Outer Chrome Border
+        // 1. Outer Chrome Border (Acts as the shadow/base)
         ctx.fillStyle = this.theme.border;
         ctx.beginPath();
         ctx.roundRect(this.baseX, currentY, this.width, this.height, radius);
         ctx.fill();
 
-        // 2. Inner Button Background
+        // 2. Inner Button Background (The clickable surface)
         ctx.fillStyle = innerColor;
         ctx.beginPath();
         ctx.roundRect(this.baseX, currentY + innerYOffset, this.width, this.height, radius);
@@ -89,12 +91,13 @@ export class Button {
             ctx.shadowBlur = 0;
         }
 
-        // 4. Button Text
+        // 4. Button Text Rendering
         ctx.fillStyle = this.theme.text;
-        ctx.font = `bold ${this.fontSize}px ${GameConfig.FONT_FAMILY}`;
+        ctx.font = `bold ${this.fontSize}px ${UIConfig.TYPOGRAPHY.FAMILY}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
+        // Vertically center the text considering the inner Y shift
         const textX = this.baseX + this.width / 2;
         const textY = currentY + this.height / 2 + innerYOffset + 5; 
         ctx.fillText(this.text, textX, textY);

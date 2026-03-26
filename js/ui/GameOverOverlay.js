@@ -1,7 +1,7 @@
 // js/ui/GameOverOverlay.js
 import { Button } from './Button.js';
 import { UIConfig } from '../UIConfig.js';
-import { GameConfig } from '../GameConfig.js';
+// 🗑️ GameConfig supprimé : 100% de l'UI est maintenant gérée par UIConfig !
 
 export class GameOverOverlay {
 
@@ -24,20 +24,21 @@ export class GameOverOverlay {
     }
 
     initUI() {
+        const config = UIConfig.SCREENS.GAMEOVER;
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
         const centerX = width / 2;
 
-        const btnWidth = Math.min(UIConfig.BUTTON_DEFAULTS.width * 1.4, width * 0.8);
-        const btnHeight = UIConfig.BUTTON_DEFAULTS.height * 1.5;
-        const btnFontSize = GameConfig.FONT_SIZE_MD * 1.2;
+        const btnWidth = Math.min(UIConfig.BUTTONS.DEFAULTS.width * config.LAYOUT.BTN_WIDTH_MULT, width * config.LAYOUT.BTN_MAX_WIDTH_PCT);
+        const btnHeight = UIConfig.BUTTONS.DEFAULTS.height * config.LAYOUT.BTN_HEIGHT_MULT;
+        const btnFontSize = UIConfig.TYPOGRAPHY.SIZE_MD * 1.2; 
 
-        const replayBtnY = height * UIConfig.SCREENS.GAMEOVER.REPLAY_BTN_Y_PERCENTAGE;
-        const marginY = height * 0.05;
+        const replayBtnY = height * config.REPLAY_BTN_Y_PERCENTAGE;
+        const marginY = height * config.LAYOUT.BTN_MARGIN_Y_PCT;
         const menuBtnY = replayBtnY + btnHeight + marginY;
 
         const replayButton = new Button(
-            'REPLAY',
+            config.TEXT.REPLAY,
             centerX - btnWidth / 2,
             replayBtnY,
             'restart',
@@ -47,7 +48,7 @@ export class GameOverOverlay {
         replayButton.anchorY = replayBtnY;
 
         const menuButton = new Button(
-            'MAIN MENU',
+            config.TEXT.MENU,
             centerX - btnWidth / 2,
             menuBtnY,
             'menu',
@@ -60,17 +61,15 @@ export class GameOverOverlay {
     }
 
     triggerTransition(targetState) {
-        // Empêche le spam clic si la transition est déjà lancée
         if (this.gameManager.transitionManager.isActive) return;
 
-        // [CORRECTION CRITIQUE] Le code était en dehors du bloc de la fonction !
         const tx = this.gameManager.canvas.width / 2;
         const ty = this.gameManager.canvas.height / 2;
+        const config = UIConfig.SCREENS.GAMEOVER.TRANSITIONS;
         
-        // On force la fin du hit stop pour être sûr que le GameManager n'est pas bloqué
         this.gameManager.hitStopTimer = 0;
         
-        this.gameManager.requestTransition(targetState, 'IRIS', 1000, tx, ty);
+        this.gameManager.requestTransition(targetState, config.TYPE, config.DURATION_MS, tx, ty);
     }
 
     // Easing functions for juice
@@ -86,28 +85,23 @@ export class GameOverOverlay {
         return 1 - Math.pow(1 - x, 3);
     }
 
-// ============================================================================
+    // ============================================================================
     // LOGIC & UPDATES
     // ============================================================================
 
     update(dt, pointer) {
         if (!this.isActive) return;
-
-        // Freeze UI if Iris Wipe transition is running
         if (this.gameManager.transitionManager.isActive) return;
 
         const elapsed = performance.now() - this.startTime;
-        const anims = UIConfig.ANIMATIONS;
-        const layout = UIConfig.SCREENS.GAMEOVER;
+        const config = UIConfig.SCREENS.GAMEOVER;
         
-        if (elapsed > layout.BUTTON_APPEAR_DELAY_MS) {
-            const btnElapsed = elapsed - layout.BUTTON_APPEAR_DELAY_MS;
-            // Ensure positive progress clamped between 0 and 1
-            const btnProgress = Math.min(1, Math.max(0, btnElapsed / anims.GAMEOVER_BTN_SLIDE_MS));
+        if (elapsed > config.BUTTON_APPEAR_DELAY_MS) {
+            const btnElapsed = elapsed - config.BUTTON_APPEAR_DELAY_MS;
+            const btnProgress = Math.min(1, Math.max(0, btnElapsed / config.BTN_SLIDE_MS));
 
             this.buttons.forEach((btn, index) => {
-                // 1. Calculate animation and mutate physical state here (SOLID Principle)
-                const staggerDelay = index * 0.15;
+                const staggerDelay = index * config.TRANSITIONS.STAGGER_DELAY;
                 let individualProgress = 0;
 
                 if (btnProgress > staggerDelay) {
@@ -115,19 +109,14 @@ export class GameOverOverlay {
                 }
 
                 const btnEase = this.easeOutCubic(individualProgress);
-                const btnStartY = btn.anchorY + 50;
+                const btnStartY = btn.anchorY + config.LAYOUT.BTN_START_Y_OFFSET;
 
-                // Update physical position BEFORE calculating pointer collisions
                 btn.baseY = btnStartY + (btn.anchorY - btnStartY) * btnEase;
-                
-                // Store alpha state for the draw loop
                 btn.currentAlpha = individualProgress; 
 
-                // 2. Update button interactions with fresh, accurate coordinates
                 btn.update(pointer.x, pointer.y, pointer.isDown);
             });
 
-            // Handle clicks after all states are strictly updated
             if (pointer.isDown && !this.wasPointerDown) {
                 [...this.buttons].forEach(btn => btn.handleClick(pointer.x, pointer.y));
             }
@@ -146,37 +135,38 @@ export class GameOverOverlay {
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
         const elapsed = performance.now() - this.startTime;
-        const anims = UIConfig.ANIMATIONS;
-        const layout = UIConfig.SCREENS.GAMEOVER;
+        const config = UIConfig.SCREENS.GAMEOVER;
 
         // 1. Gradual Dark Fade
-        const fadeProgress = Math.min(1, Math.max(0, elapsed / anims.GAMEOVER_FADE_MS));
-        ctx.fillStyle = `rgba(0, 0, 0, ${0.75 * fadeProgress})`;
+        const fadeProgress = Math.min(1, Math.max(0, elapsed / config.FADE_MS));
+        ctx.globalAlpha = fadeProgress;
+        ctx.fillStyle = config.COLORS.OVERLAY; 
         ctx.fillRect(0, 0, width, height);
+        ctx.globalAlpha = 1.0; // Reset alpha
 
         // 2. Bouncing Text
-        const bounceProgress = Math.min(1, Math.max(0, elapsed / anims.GAMEOVER_BOUNCE_MS));
+        const bounceProgress = Math.min(1, Math.max(0, elapsed / config.BOUNCE_MS));
         const bounceEase = this.easeOutBounce(bounceProgress);
 
-        const targetTextY = height * 0.25;
-        const startTextY = -200;
+        const targetTextY = height * config.LAYOUT.TITLE_Y_PCT;
+        const startTextY = config.LAYOUT.TITLE_START_Y;
         const currentTextY = startTextY + (targetTextY - startTextY) * bounceEase;
 
-        ctx.fillStyle = layout.TEXT_COLOR;
-        ctx.font = `bold 150px ${GameConfig.FONT_FAMILY}`;
+        ctx.fillStyle = config.COLORS.TITLE;
+        // Utilisation de la typographie globale !
+        ctx.font = `bold ${config.LAYOUT.TITLE_FONT_SIZE}px ${UIConfig.TYPOGRAPHY.FAMILY}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        ctx.shadowColor = 'rgba(241, 196, 15, 0.5)';
-        ctx.shadowBlur = Math.max(0, 20 * bounceProgress);
-        ctx.fillText('GAME OVER', width / 2, currentTextY);
+        ctx.shadowColor = config.COLORS.TITLE_SHADOW;
+        ctx.shadowBlur = Math.max(0, config.LAYOUT.TITLE_SHADOW_BLUR * bounceProgress);
+        ctx.fillText(config.TEXT.TITLE, width / 2, currentTextY);
         ctx.shadowBlur = 0;
 
-        // 3. Sliding Buttons (Rendering Only)
-        if (elapsed > layout.BUTTON_APPEAR_DELAY_MS) {
+        // 3. Sliding Buttons
+        if (elapsed > config.BUTTON_APPEAR_DELAY_MS) {
             if (!this.gameManager.transitionManager.isActive) {
                 this.buttons.forEach((btn) => {
-                    // Read state strictly prepared by update()
                     ctx.globalAlpha = btn.currentAlpha !== undefined ? btn.currentAlpha : 1.0;
                     btn.draw(ctx);
                     ctx.globalAlpha = 1.0;

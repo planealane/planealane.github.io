@@ -1,7 +1,6 @@
 // js/ui/TutorialOverlay.js
 import { Button } from './Button.js';
 import { UIConfig } from '../UIConfig.js';
-import { GameConfig } from '../GameConfig.js';
 import { Player } from '../entities/Player.js';
 import { Enemy } from '../entities/Enemy.js';
 import { Gate } from '../entities/Gate.js';
@@ -23,20 +22,15 @@ export class TutorialOverlay {
 
         this.simulations = {
             primary: {
-                player: null,
-                enemies: [],
-                projectiles: [],
+                player: null, enemies: [], projectiles: [],
                 box: { x: 0, y: 0, w: 0, h: 0 } 
             },
             secondary: {
-                player: null,
-                enemies: [],
-                projectiles: [],
+                player: null, enemies: [], projectiles: [],
                 box: { x: 0, y: 0, w: 0, h: 0 }
             },
             gates: {
-                primary: null,
-                secondary: null
+                primary: null, secondary: null
             }
         };
     }
@@ -52,20 +46,19 @@ export class TutorialOverlay {
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
         const centerX = width / 2;
+        const config = UIConfig.SCREENS.TUTORIAL;
 
-        const btnWidth = Math.min(UIConfig.BUTTON_DEFAULTS.width * 1.4, width * 0.8);
-        const btnHeight = UIConfig.BUTTON_DEFAULTS.height * 1.5;
-        const btnFontSize = GameConfig.FONT_SIZE_MD * 1.2;
-        const btnY = height * 0.85;
+        const btnWidth = Math.min(UIConfig.BUTTONS.DEFAULTS.width * config.LAYOUT.BTN_WIDTH_MULT, width * config.LAYOUT.BTN_MAX_WIDTH_PCT);
+        const btnHeight = UIConfig.BUTTONS.DEFAULTS.height * config.LAYOUT.BTN_HEIGHT_MULT;
+        const btnFontSize = UIConfig.TYPOGRAPHY.SIZE_MD * 1.2;
+        const btnY = height * config.LAYOUT.BTN_Y_PCT;
 
         this.buttons = []; 
 
         if (this.currentScreen === 1) {
             this.buttons.push(new Button(
-                'NEXT',
-                centerX - btnWidth / 2,
-                btnY,
-                'menu',
+                config.TEXT.BTN_NEXT,
+                centerX - btnWidth / 2, btnY, 'menu',
                 () => {
                     this.currentScreen = 2;
                     this.initUI(); 
@@ -74,10 +67,8 @@ export class TutorialOverlay {
             ));
         } else if (this.currentScreen === 2) {
             this.buttons.push(new Button(
-                'PLAY NOW',
-                centerX - btnWidth / 2,
-                btnY,
-                'start',
+                config.TEXT.BTN_PLAY,
+                centerX - btnWidth / 2, btnY, 'start',
                 () => this.closeTutorial(),
                 { width: btnWidth, height: btnHeight, fontSize: btnFontSize }
             ));
@@ -89,17 +80,17 @@ export class TutorialOverlay {
         const height = this.gameManager.canvas.height;
         const centerX = width / 2;
         const centerY = height / 2;
+        const layout = UIConfig.SCREENS.TUTORIAL.LAYOUT;
 
-        const boxW = 300;
-        const boxH = 800; 
+        const boxW = layout.BOX_WIDTH;
+        const boxH = layout.BOX_HEIGHT; 
+        const spacing = layout.BOX_SPACING;
         
-        this.simulations.primary.box = { x: centerX - boxW - 20, y: centerY - boxH / 2, w: boxW, h: boxH };
-        this.simulations.secondary.box = { x: centerX + 20, y: centerY - boxH / 2, w: boxW, h: boxH };
+        this.simulations.primary.box = { x: centerX - boxW - spacing, y: centerY - boxH / 2, w: boxW, h: boxH };
+        this.simulations.secondary.box = { x: centerX + spacing, y: centerY - boxH / 2, w: boxW, h: boxH };
 
         const shipImage = this.gameManager.assets.getImage('ships');
 
-        // Utility to temporarily strip text rendering from the canvas 
-        // specifically to hide the floating HP numbers for tutorial enemies.
         const hideEnemyHP = (enemy) => {
             const originalDraw = enemy.draw.bind(enemy);
             enemy.draw = (ctx) => {
@@ -117,7 +108,6 @@ export class TutorialOverlay {
         // SCREEN 1: WEAPONS SIMULATION
         // ==========================================
 
-        // Primary Weapon Setup
         const pBox = this.simulations.primary.box;
         const pPlayer = new Player(shipImage);
         pPlayer.x = pBox.x + pBox.w / 2;
@@ -125,20 +115,20 @@ export class TutorialOverlay {
         pPlayer.weapons = [pPlayer.primaryWeapon]; 
         this.simulations.primary.player = pPlayer;
 
-        // Enemy dies in 1 hit
         const pEnemy = new Enemy(pBox.x + pBox.w / 2, pBox.y - 50, shipImage, 1, 0);
         hideEnemyHP(pEnemy); 
         this.simulations.primary.enemies.push(pEnemy);
 
-        // Secondary Weapon Setup
         const sBox = this.simulations.secondary.box;
         const sPlayer = new Player(shipImage);
         sPlayer.x = sBox.x + sBox.w / 2;
         sPlayer.y = sBox.y + sBox.h - 80;
         sPlayer.weapons = [sPlayer.secondaryWeapon]; 
+        
+        sPlayer.secondaryWeapon.stats.cooldown = pPlayer.primaryWeapon.stats.cooldown;
+
         this.simulations.secondary.player = sPlayer;
 
-        // Enemy dies in 3 hits
         const sEnemy1 = new Enemy(sBox.x + sBox.w * 0.5, sBox.y - 50, shipImage, 3, 1);
         hideEnemyHP(sEnemy1); 
         this.simulations.secondary.enemies.push(sEnemy1);
@@ -147,17 +137,18 @@ export class TutorialOverlay {
         // SCREEN 2: GATES SETUP
         // ==========================================
         
-        // Make sure 'gate' matches the exact key used in your AssetManager
         const gateImage = this.gameManager.assets.getImage('props'); 
+        const configText = UIConfig.SCREENS.TUTORIAL.TEXT;
+        const configColors = UIConfig.SCREENS.TUTORIAL.COLORS;
 
         const primaryGate = new Gate(centerX - 200, centerY - 50, gateImage, 1);
         primaryGate.text = '+ PRIMARY DMG'; 
-        primaryGate.color = '#ff9900';     
+        primaryGate.color = configColors.GATE_PRIMARY;     
         this.simulations.gates.primary = primaryGate;
 
         const secondaryGate = new Gate(centerX + 200, centerY - 50, gateImage, 1);
         secondaryGate.text = '+ SECONDARY HASTE'; 
-        secondaryGate.color = '#00ccff';          
+        secondaryGate.color = configColors.GATE_SECONDARY;          
         this.simulations.gates.secondary = secondaryGate;
     }
 
@@ -197,9 +188,10 @@ export class TutorialOverlay {
             assets: this.gameManager.assets,
             entities: simState.enemies, 
             addEntity: (entity) => {
-                // Intercept HomingProjectile to force it to fly straight for visual clarity
                 if (entity.constructor.name === 'HomingProjectile') {
                     entity.getNearestTarget = () => null;
+                    entity.vx = 0;
+                    entity.vy = -Math.abs(entity.speed);
                 }
                 simState.projectiles.push(entity);
             }
@@ -211,8 +203,6 @@ export class TutorialOverlay {
 
         simState.enemies.forEach(enemy => {
             enemy.update(dt);
-            
-            // Loop enemy back to the top to keep the video running
             if (enemy.y > box.y + box.h + 50) {
                 enemy.y = box.y - 50;
                 enemy.hp = enemy.maxHp;
@@ -223,21 +213,17 @@ export class TutorialOverlay {
 
         for (let i = simState.projectiles.length - 1; i >= 0; i--) {
             const proj = simState.projectiles[i];
-            
             const playerX = simState.player ? simState.player.x : 0;
+            
             proj.update(dt, playerX, mockEntityManager);
 
             simState.enemies.forEach(enemy => {
                 if (!enemy.markForDeletion && (!proj.spawnDelay || proj.spawnDelay <= 0)) {
                     if (this.checkCollision(proj, enemy)) {
-                        
-                        // Enforce exactly 1 damage per hit for tutorial pacing
                         enemy.hp -= 1; 
-                        
                         enemy.onHit(); 
                         proj.markForDeletion = true;
 
-                        // Fake death: respawn immediately at the top
                         if (enemy.hp <= 0) {
                             enemy.y = box.y - 50;
                             enemy.hp = enemy.maxHp;
@@ -272,37 +258,39 @@ export class TutorialOverlay {
 
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
+        const config = UIConfig.SCREENS.TUTORIAL;
+        const typo = UIConfig.TYPOGRAPHY;
 
-        ctx.fillStyle = `rgba(0, 0, 0, 0.9)`;
+        ctx.fillStyle = config.COLORS.OVERLAY;
         ctx.fillRect(0, 0, width, height);
 
         if (this.currentScreen === 1) {
-            ctx.fillStyle = '#ffffff';
-            ctx.font = `bold 40px ${GameConfig.FONT_FAMILY}`;
+            ctx.fillStyle = config.COLORS.TEXT_MAIN;
+            ctx.font = `bold ${typo.SIZE_SM}px ${typo.FAMILY}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('WEAPON SYSTEMS', width / 2, height * 0.10);
+            ctx.fillText(config.TEXT.TITLE_SCREEN_1, width / 2, height * config.LAYOUT.TITLE_Y_PCT);
 
-            this.drawFakeGameplay(ctx, this.simulations.primary, "PRIMARY WEAPON", "Direct physical damage.");
-            this.drawFakeGameplay(ctx, this.simulations.secondary, "SECONDARY WEAPON", "Homing explosive ordinance.");
+            this.drawFakeGameplay(ctx, this.simulations.primary, config.TEXT.PRIMARY_TITLE, config.TEXT.PRIMARY_DESC);
+            this.drawFakeGameplay(ctx, this.simulations.secondary, config.TEXT.SECONDARY_TITLE, config.TEXT.SECONDARY_DESC);
         } 
         else if (this.currentScreen === 2) {
-            ctx.fillStyle = '#ffffff';
-            ctx.font = `bold 40px ${GameConfig.FONT_FAMILY}`;
+            ctx.fillStyle = config.COLORS.TEXT_MAIN;
+            ctx.font = `bold ${typo.SIZE_SM}px ${typo.FAMILY}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('UPGRADE PORTALS', width / 2, height * 0.15);
+            ctx.fillText(config.TEXT.TITLE_SCREEN_2, width / 2, height * config.LAYOUT.TITLE_SCREEN_2_Y_PCT);
 
             this.simulations.gates.primary.draw(ctx);
             this.simulations.gates.secondary.draw(ctx);
 
-            ctx.font = `bold 24px ${GameConfig.FONT_FAMILY}`;
+            ctx.font = `bold ${typo.SIZE_SM * 0.6}px ${typo.FAMILY}`;
             
             ctx.fillStyle = this.simulations.gates.primary.color;
-            ctx.fillText("Orange upgrades the primary weapon...", this.simulations.gates.primary.x, this.simulations.gates.primary.y + 120);
+            ctx.fillText(config.TEXT.GATE_PRIMARY_DESC, this.simulations.gates.primary.x, this.simulations.gates.primary.y + config.LAYOUT.GATE_DESC_OFFSET_Y);
 
             ctx.fillStyle = this.simulations.gates.secondary.color;
-            ctx.fillText("...and Blue upgrades the secondary !", this.simulations.gates.secondary.x, this.simulations.gates.secondary.y + 120);
+            ctx.fillText(config.TEXT.GATE_SECONDARY_DESC, this.simulations.gates.secondary.x, this.simulations.gates.secondary.y + config.LAYOUT.GATE_DESC_OFFSET_Y);
         }
 
         this.buttons.forEach(btn => btn.draw(ctx));
@@ -310,26 +298,28 @@ export class TutorialOverlay {
 
     drawFakeGameplay(ctx, simState, title, description) {
         const box = simState.box;
+        const config = UIConfig.SCREENS.TUTORIAL;
+        const typo = UIConfig.TYPOGRAPHY;
 
-        ctx.strokeStyle = '#444';
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = config.COLORS.BOX_BORDER;
+        ctx.lineWidth = config.LAYOUT.BOX_BORDER_WIDTH;
         ctx.strokeRect(box.x, box.y, box.w, box.h);
         
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold 44px ${GameConfig.FONT_FAMILY}`;
-        ctx.fillText(title, box.x + box.w / 2, box.y + box.h + 60);
+        ctx.fillStyle = config.COLORS.TEXT_MAIN;
+        ctx.font = `bold ${typo.SIZE_SM * 1.1}px ${typo.FAMILY}`;
+        ctx.fillText(title, box.x + box.w / 2, box.y + box.h + config.LAYOUT.DESC_OFFSET_Y_1);
 
-        ctx.fillStyle = '#aaaaaa';
-        ctx.font = `32px ${GameConfig.FONT_FAMILY}`;
-        ctx.fillText(description, box.x + box.w / 2, box.y + box.h + 110);
+        ctx.fillStyle = config.COLORS.TEXT_DESC;
+        ctx.font = `${typo.SIZE_SM * 0.8}px ${typo.FAMILY}`;
+        ctx.fillText(description, box.x + box.w / 2, box.y + box.h + config.LAYOUT.DESC_OFFSET_Y_2);
 
         ctx.save(); 
         ctx.beginPath();
         ctx.rect(box.x, box.y, box.w, box.h); 
         ctx.clip(); 
 
-        ctx.fillStyle = '#0a0a0a';
+        ctx.fillStyle = config.COLORS.BOX_BG;
         ctx.fillRect(box.x, box.y, box.w, box.h);
 
         if (simState.player) simState.player.draw(ctx);

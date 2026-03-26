@@ -1,12 +1,13 @@
 // js/core/GameManager.js
 import { GameConfig } from '../GameConfig.js';
+import { UIConfig } from '../UIConfig.js'; // [NEW] Added UIConfig import
 import { InputManager } from '../managers/InputManager.js';
 import { TransitionManager } from '../managers/TransitionManager.js';
 import { LoadState } from '../states/LoadState.js';
 import { StartState } from '../states/StartState.js';
 import { PlayState } from '../states/PlayState.js';
 import { Background } from '../utils/Background.js';
-import { gameEvents, EVENTS } from './EventBus.js'; // [NOUVEAU] Import de l'EventBus
+import { gameEvents, EVENTS } from './EventBus.js';
 
 export class GameManager {
 
@@ -21,15 +22,16 @@ export class GameManager {
         this.assets = assets;
         this.audioManager = audioManager;
 
-        this.canvas.width = GameConfig.GAME_WIDTH;
-        this.canvas.height = GameConfig.GAME_HEIGHT;
-        this.ctx.imageSmoothingEnabled = false;
+        // [FIXED] Using UIConfig instead of GameConfig for canvas dimensions
+        this.canvas.width = GameConfig.CANVAS.WIDTH;
+        this.canvas.height = GameConfig.CANVAS.HEIGHT;
+        this.ctx.imageSmoothingEnabled = false; // Essential for pixel art aesthetics
 
         // --- Time Management (Fixed Timestep) ---
         this.lastTime = 0;
         this.timeScale = 1.0;
         this.accumulator = 0;
-        this.FIXED_TIME_STEP = 1000 / 60; // ~16.66ms per logic tick
+        this.FIXED_TIME_STEP = 1000 / 60; // ~16.66ms per logic tick (target 60fps)
         this.MAX_FRAME_TIME = 250; // Cap to prevent death spiral on tab resume
 
         // --- Hit Stop State ---
@@ -42,6 +44,8 @@ export class GameManager {
         });
 
         this.inputManager = new InputManager(this.canvas);
+        
+        // Background requires explicit width/height parameters
         this.background = new Background(this.assets, this.canvas.width, this.canvas.height);
         this.transitionManager = new TransitionManager(this.canvas.width, this.canvas.height);
 
@@ -56,8 +60,8 @@ export class GameManager {
         };
         this.currentState = null;
         
-        // NOTE: Le GameManager n'écoute plus PLAYER_DEAD. 
-        // C'est le PlayState qui gère sa propre séquence de mort avec GameOverOverlay.
+        // NOTE: The GameManager no longer listens to PLAYER_DEAD. 
+        // The PlayState handles its own death sequence via GameOverOverlay.
     }
 
     // ============================================================================
@@ -66,6 +70,9 @@ export class GameManager {
 
     /**
      * Initiates a visual transition, then changes the state at the visual midpoint.
+     * @param {string} newStateKey - The dictionary key of the target state
+     * @param {string} type - Transition type (e.g., 'FADE', 'IRIS')
+     * @param {number} duration - Total duration of the transition in ms
      */
     requestTransition(newStateKey, type = 'FADE', duration = 500, targetX = this.canvas.width / 2, targetY = this.canvas.height / 2) {
         // Prevent stacking transitions
@@ -78,16 +85,17 @@ export class GameManager {
 
     /**
      * Handles the exact logic of swapping states.
-     * Should generally be called via requestTransition now.
+     * Should generally be called via requestTransition now to ensure visual smoothness.
+     * @param {string} newStateKey - The dictionary key of the target state
      */
     changeState(newStateKey) {
         if (this.currentState) {
             this.currentState.exit();
         }
 
-        // Toujours remettre la vitesse normale au changement d'état
+        // Always reset time scale and hit stops when changing states
         this.timeScale = 1.0; 
-        this.hitStopTimer = 0; // Reset any active time freeze
+        this.hitStopTimer = 0; 
 
         this.currentState = this.states[newStateKey];
 
@@ -109,6 +117,7 @@ export class GameManager {
     // ============================================================================
 
     loop(timestamp) {
+        // Initialize lastTime on the very first frame
         if (!this.lastTime) this.lastTime = timestamp;
         
         let rawDt = timestamp - this.lastTime;
@@ -125,13 +134,13 @@ export class GameManager {
         if (this.hitStopTimer > 0) {
             this.hitStopTimer -= rawDt;
             
-            // Keep drawing the frozen frame to prevent flickering
+            // Keep drawing the frozen frame to prevent visual flickering
             if (this.background) this.background.draw(this.ctx);
             if (this.currentState) this.currentState.draw(this.ctx);
             this.transitionManager.draw(this.ctx);
             
             requestAnimationFrame(this.loop.bind(this));
-            return; // Skip all updates this frame
+            return; // Skip all physics and logic updates this frame
         }
 
         // ==========================================
@@ -142,7 +151,7 @@ export class GameManager {
 
         const pointer = this.inputManager.getPointer();
 
-        // 2. UPDATE LOGIC (Fixed Timestep)
+        // 2. UPDATE LOGIC (Fixed Timestep Integration)
         // Consume the accumulator in discrete, predictable chunks
         while (this.accumulator >= this.FIXED_TIME_STEP) {
             if (this.background) {
@@ -150,7 +159,7 @@ export class GameManager {
             }
 
             if (this.currentState) {
-                // Pass the fixed timestep to the state logic
+                // Pass the fixed timestep to the state logic ensuring deterministic behavior
                 this.currentState.update(this.FIXED_TIME_STEP, pointer);
             }
 
@@ -158,7 +167,7 @@ export class GameManager {
         }
 
         // 3. VISUAL LOGIC & UI (Variable Timestep)
-        // Transitions are purely visual, they can use raw real-time to remain perfectly smooth
+        // Transitions are purely visual, they use raw real-time to remain perfectly smooth
         this.transitionManager.update(rawDt);
 
         // 4. RENDER (Once per frame)
@@ -170,8 +179,10 @@ export class GameManager {
             this.currentState.draw(this.ctx);
         }
 
+        // The transition overlay is drawn last so it sits on top of everything
         this.transitionManager.draw(this.ctx);
 
+        // Loop recursively
         requestAnimationFrame(this.loop.bind(this));
     }
 }

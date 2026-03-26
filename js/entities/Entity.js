@@ -1,6 +1,6 @@
-// js/Entity.js
-import { GameConfig } from '../GameConfig.js';
+// js/entities/Entity.js
 import { UIConfig } from '../UIConfig.js';
+// 🗑️ GameConfig removed! Fonts are now globally handled by UIConfig.
 
 // ============================================================================
 // UTILITIES
@@ -10,10 +10,10 @@ import { UIConfig } from '../UIConfig.js';
  * Draws text with a black outline for better readability against varied backgrounds.
  * Exported so individual entity classes can use it for HP, Loot, etc.
  */
-export function drawFloatingText(ctx, text, x, y, color, fontSize = GameConfig.FONT_SIZE_MD) {
+export function drawFloatingText(ctx, text, x, y, color, fontSize = UIConfig.TYPOGRAPHY.SIZE_MD) {
     ctx.save();
 
-    ctx.font = `bold ${fontSize}px ${GameConfig.FONT_FAMILY}`;
+    ctx.font = `bold ${fontSize}px ${UIConfig.TYPOGRAPHY.FAMILY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -33,10 +33,11 @@ export function drawFloatingText(ctx, text, x, y, color, fontSize = GameConfig.F
  * Standardized rendering for all bonus texts (Gates, Collectibles)
  */
 export function drawBonusText(ctx, text, x, y, color, fontSize) {
-    // [MODIFIÉ] On pointe vers UIConfig
-    const visuals = UIConfig.BONUS_VISUALS;
+    // Point to the newly nested structure in UIConfig
+    const visuals = UIConfig.SCREENS.IN_GAME.BONUS_VISUALS;
 
-    ctx.font = `bold ${fontSize}px ${visuals.FONT_FAMILY}`;
+    // Use the global typography settings
+    ctx.font = `bold ${fontSize}px ${UIConfig.TYPOGRAPHY.FAMILY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 

@@ -1,9 +1,10 @@
 // js/ui/SuperUpgradeOverlay.js
-import { GameConfig } from '../GameConfig.js';
+import { UIConfig } from '../UIConfig.js';
 import { UpgradesConfig } from '../config/UpgradesConfig.js';
 import { ShipsAtlas, PropsAtlas } from '../utils/Atlas.js';
 import { drawMangaLines } from '../utils/VFXUtils.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
+// 🗑️ GameConfig est totalement retiré
 
 export class SuperUpgradeOverlay {
     constructor(gameManager, onCompleteCallback) {
@@ -19,8 +20,7 @@ export class SuperUpgradeOverlay {
         this.wasPointerDown = false;
         this.hoveredIndex = -1;
 
-        // States managing the collection animation and delay
-        this.state = 'SELECTING'; // 'SELECTING' or 'ANIMATING'
+        this.state = 'SELECTING'; 
         this.particles = [];
         this.selectedCardIndex = -1;
         this.animationTimer = 0;
@@ -35,15 +35,12 @@ export class SuperUpgradeOverlay {
         this.currentWave = data.wave || 1;
         this.wasPointerDown = true;
 
-        // Determine the available upgrade pool based on current wave progression
         if (data.encounterType === 'TUTORIAL') {
-            // Phase 1 : Les Choix de Classe
             this.choices = [
                 { config: UpgradesConfig.ARCHETYPES['CLASS_GUNNER'], tierIndex: 0 },
                 { config: UpgradesConfig.ARCHETYPES['CLASS_CANNON'], tierIndex: 0 },
                 { config: UpgradesConfig.ARCHETYPES['CLASS_SPREAD'], tierIndex: 0 }
             ];
-
         } else {
             this.choices = UpgradesConfig.RANDOM.getWeightedSuperUpgrades(UpgradesConfig.ENHANCEMENTS, 3);
         }
@@ -55,10 +52,11 @@ export class SuperUpgradeOverlay {
     buildLayout() {
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
+        const layout = UIConfig.SCREENS.UPGRADE.LAYOUT;
 
-        const cardWidth = width * 0.28;
-        const cardHeight = height * 0.60;
-        const spacing = width * 0.04;
+        const cardWidth = width * layout.CARD_WIDTH_PCT;
+        const cardHeight = height * layout.CARD_HEIGHT_PCT;
+        const spacing = width * layout.CARD_SPACING_PCT;
 
         const totalWidth = (cardWidth * 3) + (spacing * 2);
         const startX = (width - totalWidth) / 2;
@@ -75,71 +73,48 @@ export class SuperUpgradeOverlay {
         });
     }
 
-    /**
-     * Returns a specific color hex code based on the upgrade tier level.
-     * @param {number} tierIndex - The rarity tier index
-     * @returns {string} Hex color code
-     */
     getTierColor(tierIndex) {
-        switch (tierIndex) {
-            case 0: return '#3498db'; // Basic (Blue)
-            case 1: return '#9b59b6'; // Rare (Purple)
-            case 2: return '#f1c40f'; // Legendary (Gold)
-            default: return '#ffffff';
-        }
+        const tiers = UIConfig.SCREENS.UPGRADE.COLORS.TIERS;
+        return tiers[tierIndex] || tiers[3]; // Retourne la couleur, ou le Fallback (blanc)
     }
 
-    /**
-     * Generates square particles bursting outward from the card's edges.
-     * @param {Object} cardBounds - Object containing x, y, width, and height of the card
-     * @param {string} color - The particle color (hex code)
-     */
     spawnParticles(cardBounds, color) {
-        const particleCount = 40;
-        const baseSize = 20; // Represents a solid pixel block size
-
-        for (let i = 0; i < particleCount; i++) {
-            // Select a random edge (0: Top, 1: Right, 2: Bottom, 3: Left)
+        const config = UIConfig.SCREENS.UPGRADE.PARTICLES;
+        
+        for (let i = 0; i < config.COUNT; i++) {
             const edge = Math.floor(Math.random() * 4);
 
             let pX, pY, vX, vY;
             const speed = Math.random() * 3 + 2;
-            const spread = (Math.random() - 0.5) * 2; // Tangential scatter
+            const spread = (Math.random() - 0.5) * 2; 
 
             switch (edge) {
-                case 0: // Top edge
+                case 0: // Top
                     pX = cardBounds.x + Math.random() * cardBounds.width;
                     pY = cardBounds.y;
-                    vX = spread;
-                    vY = -speed; // Push upward
+                    vX = spread; vY = -speed; 
                     break;
-                case 1: // Right edge
+                case 1: // Right
                     pX = cardBounds.x + cardBounds.width;
                     pY = cardBounds.y + Math.random() * cardBounds.height;
-                    vX = speed;  // Push rightward
-                    vY = spread;
+                    vX = speed; vY = spread;
                     break;
-                case 2: // Bottom edge
+                case 2: // Bottom
                     pX = cardBounds.x + Math.random() * cardBounds.width;
                     pY = cardBounds.y + cardBounds.height;
-                    vX = spread;
-                    vY = speed;  // Push downward
+                    vX = spread; vY = speed; 
                     break;
-                case 3: // Left edge
+                case 3: // Left
                     pX = cardBounds.x;
                     pY = cardBounds.y + Math.random() * cardBounds.height;
-                    vX = -speed; // Push leftward
-                    vY = spread;
+                    vX = -speed; vY = spread;
                     break;
             }
 
             this.particles.push({
-                x: pX,
-                y: pY,
-                vx: vX,
-                vy: vY,
-                size: baseSize,
-                gravity: 0.15, // Downward pull over time
+                x: pX, y: pY, vx: vX, vy: vY,
+                size: config.BASE_SIZE,
+                gravity: config.GRAVITY, 
                 life: 1.0,
                 decay: Math.random() * 0.03 + 0.02,
                 color: color
@@ -148,7 +123,6 @@ export class SuperUpgradeOverlay {
     }
 
     selectUpgrade(index) {
-        // Prevent multiple selections during the animation phase
         if (this.state !== 'SELECTING') return;
 
         this.state = 'ANIMATING';
@@ -157,12 +131,10 @@ export class SuperUpgradeOverlay {
         const selected = selectedCard.choice;
         const color = this.getTierColor(selected.tierIndex);
 
-        // Apply the upgrade logic to the player data immediately
         if (selected.config.onApply) {
             selected.config.onApply(this.playerRef, selected.tierIndex, this.currentWave);
         }
 
-        // Update the player sprite if the upgrade is an archetype variant
         if (selected.config.playerVariantIndex !== undefined) {
             if (this.playerRef.setVariant) {
                 this.playerRef.setVariant(selected.config.playerVariantIndex);
@@ -173,17 +145,15 @@ export class SuperUpgradeOverlay {
             }
         }
 
-        // Trigger the visual burst using the card's full geometry
         this.spawnParticles(selectedCard, color);
-
-        // Keep the overlay open temporarily to display the visual effects
-        this.animationTimer = 600;
+        this.animationTimer = UIConfig.SCREENS.UPGRADE.TIMING.ANIMATION_MS;
     }
 
     update(dt, pointer) {
         if (!this.isActive) return;
 
-        // Process particle physics and animation timer while in ANIMATING state
+        const config = UIConfig.SCREENS.UPGRADE.TIMING;
+
         if (this.state === 'ANIMATING') {
             this.animationTimer -= dt;
             const timeFactor = dt * 0.06;
@@ -193,38 +163,32 @@ export class SuperUpgradeOverlay {
 
                 p.x += p.vx * timeFactor;
                 p.y += p.vy * timeFactor;
-                p.vy += p.gravity * timeFactor; // Apply gravity for an arc trajectory
+                p.vy += p.gravity * timeFactor; 
                 p.life -= p.decay * timeFactor;
 
                 if (p.life <= 0) this.particles.splice(i, 1);
             }
 
-            // Close the overlay once the animation completes and trigger screen fade
             if (this.animationTimer <= 0) {
                 this.isActive = false;
 
                 gameEvents.emit(EVENTS.SCREEN_FADE, {
-                    duration: 400,
+                    duration: config.FADE_OUT_MS,
                     startAlpha: 0.85,
                     endAlpha: 0.0,
-                    color: '#000000'
+                    color: UIConfig.SCREENS.UPGRADE.COLORS.FADE_OUT
                 });
 
-                // 1. Retrieve the color of the selected card
                 const selectedChoice = this.cards[this.selectedCardIndex].choice;
                 const tierColor = this.getTierColor(selectedChoice.tierIndex);
-
-                // 2. Pass this color to the completion callback
                 this.onComplete(tierColor);
             }
             return;
         }
 
-        // Standard selection logic
         const elapsed = performance.now() - this.startTime;
 
-        // Prevent accidental clicks immediately upon opening
-        if (elapsed < 500) {
+        if (elapsed < config.CLICK_DELAY_MS) {
             this.wasPointerDown = pointer.isDown;
             return;
         }
@@ -275,60 +239,56 @@ export class SuperUpgradeOverlay {
 
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
+        const config = UIConfig.SCREENS.UPGRADE;
+        const typo = UIConfig.TYPOGRAPHY;
 
-        // Draw dark background overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        // Overlay
+        ctx.fillStyle = config.COLORS.OVERLAY_BG;
         ctx.fillRect(0, 0, width, height);
 
-        // Render continuous speed lines in the background
         drawMangaLines(ctx, width, height, performance.now());
 
-        // Header Title
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${GameConfig.FONT_SIZE_LG}px ${GameConfig.FONT_FAMILY}`;
+        // Header
+        ctx.fillStyle = config.COLORS.TEXT_TITLE;
+        ctx.font = `bold ${typo.SIZE_LG}px ${typo.FAMILY}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('EVOLUTION READY', width / 2, height * 0.15);
+        ctx.fillText(config.TEXT.TITLE, width / 2, height * config.LAYOUT.TITLE_Y_PCT);
 
         const playerImage = this.gameManager.assets.getImage('ships');
         const propsImage = this.gameManager.assets.getImage('props');
 
         this.cards.forEach((card, index) => {
-            // Hide unselected cards during the collection animation
-            if (this.state === 'ANIMATING' && this.selectedCardIndex !== index) {
-                return;
-            }
+            if (this.state === 'ANIMATING' && this.selectedCardIndex !== index) return;
 
             const isHovered = this.hoveredIndex === index;
-            const config = card.choice.config;
+            const cardConfig = card.choice.config;
             const tierColor = this.getTierColor(card.choice.tierIndex);
 
             ctx.save();
 
-            // Apply glow effect for hovered or actively animating cards
             if (isHovered || (this.state === 'ANIMATING' && this.selectedCardIndex === index)) {
                 ctx.shadowColor = tierColor;
-                ctx.shadowBlur = 20;
+                ctx.shadowBlur = config.LAYOUT.SHADOW_BLUR;
             }
 
-            ctx.fillStyle = isHovered ? '#2c3e50' : '#1a252f';
+            ctx.fillStyle = isHovered ? config.COLORS.CARD_BG_HOVER : config.COLORS.CARD_BG_NORMAL;
             ctx.strokeStyle = tierColor;
-            ctx.lineWidth = isHovered ? 6 : 3;
+            ctx.lineWidth = isHovered ? config.LAYOUT.BORDER_HOVER : config.LAYOUT.BORDER_NORMAL;
 
             ctx.beginPath();
-            ctx.roundRect(card.x, card.y, card.width, card.height, 15);
+            ctx.roundRect(card.x, card.y, card.width, card.height, config.LAYOUT.CARD_RADIUS);
             ctx.fill();
             ctx.stroke();
 
-            ctx.restore(); // Remove shadow glow before drawing internal text/sprites
+            ctx.restore(); 
 
-            const spriteSize = card.width * 0.6;
+            const spriteSize = card.width * config.LAYOUT.SPRITE_SIZE_PCT;
             const spriteX = card.x + (card.width / 2) - (spriteSize / 2);
-            const spriteY = card.y + (card.height * 0.15);
+            const spriteY = card.y + (card.height * config.LAYOUT.SPRITE_Y_PCT);
 
-            // Draw either the player ship variant or a generic props icon
-            if (config.playerVariantIndex !== undefined && playerImage) {
-                const safeIndex = config.playerVariantIndex % ShipsAtlas.PLAYER_VARIANTS;
+            if (cardConfig.playerVariantIndex !== undefined && playerImage) {
+                const safeIndex = cardConfig.playerVariantIndex % ShipsAtlas.PLAYER_VARIANTS;
                 const frame = ShipsAtlas.getFrame(safeIndex, playerImage.width, playerImage.height);
                 ctx.drawImage(
                     playerImage,
@@ -350,35 +310,34 @@ export class SuperUpgradeOverlay {
             const maxTextWidth = card.width * 0.90;
             const textCenterX = card.x + (card.width / 2);
 
-            // Dynamically scale card title to prevent overflow
-            ctx.fillStyle = isHovered ? tierColor : '#ffffff';
-            let titleFontSize = GameConfig.FONT_SIZE_SM;
-            ctx.font = `bold ${titleFontSize}px ${GameConfig.FONT_FAMILY}`;
+            ctx.fillStyle = isHovered ? tierColor : config.COLORS.TEXT_TITLE;
+            let titleFontSize = typo.SIZE_SM;
+            ctx.font = `bold ${titleFontSize}px ${typo.FAMILY}`;
 
-            let titleWidth = ctx.measureText(config.title).width;
+            let titleWidth = ctx.measureText(cardConfig.title).width;
             if (titleWidth > maxTextWidth) {
                 titleFontSize = titleFontSize * (maxTextWidth / titleWidth);
-                ctx.font = `bold ${titleFontSize}px ${GameConfig.FONT_FAMILY}`;
+                ctx.font = `bold ${titleFontSize}px ${typo.FAMILY}`;
             }
 
             ctx.textAlign = 'center';
-            ctx.fillText(config.title, textCenterX, card.y + card.height * 0.6);
+            ctx.fillText(cardConfig.title, textCenterX, card.y + card.height * config.LAYOUT.CARD_TITLE_Y_PCT);
 
-            ctx.fillStyle = '#bdc3c7';
-            const descFontSize = GameConfig.FONT_SIZE_SM * 0.75;
-            ctx.font = `normal ${descFontSize}px ${GameConfig.FONT_FAMILY}`;
+            ctx.fillStyle = config.COLORS.TEXT_DESC;
+            const descFontSize = typo.SIZE_SM * 0.75;
+            ctx.font = `normal ${descFontSize}px ${typo.FAMILY}`;
 
-            const startDescY = card.y + card.height * 0.75;
+            const startDescY = card.y + card.height * config.LAYOUT.CARD_DESC_Y_PCT;
             const lineHeight = descFontSize * 1.4;
-            const descriptionText = config.getDescription(card.choice.tierIndex, this.currentWave);
+            const descriptionText = cardConfig.getDescription(card.choice.tierIndex, this.currentWave);
 
             this.drawWrappedText(ctx, descriptionText, textCenterX, startDescY, maxTextWidth, lineHeight);
         });
 
-        // Render collection particles on top of everything
+        // Particules
         if (this.particles.length > 0) {
             ctx.save();
-            ctx.imageSmoothingEnabled = false; // Ensures crisp edges for pixel art styling
+            ctx.imageSmoothingEnabled = false; 
 
             this.particles.forEach(p => {
                 ctx.globalAlpha = p.life;
@@ -386,7 +345,6 @@ export class SuperUpgradeOverlay {
 
                 const currentSize = Math.max(1, p.size * (0.5 + p.life * 0.5));
 
-                // Use Math.floor on fillRect coordinates to align strictly to the pixel grid
                 ctx.fillRect(
                     Math.floor(p.x - currentSize / 2),
                     Math.floor(p.y - currentSize / 2),

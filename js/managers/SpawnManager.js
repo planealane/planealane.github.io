@@ -118,7 +118,7 @@ export class SpawnManager {
     }
 
     spawnBoss(entityManager, encounterData, yPosition) {
-        const x = GameConfig.GAME_WIDTH / 2;
+        const x = GameConfig.CANVAS_WIDTH / 2;
         
         const bossDef = GameConfig.getBossDef(encounterData);
         

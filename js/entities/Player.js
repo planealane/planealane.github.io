@@ -13,8 +13,8 @@ export class Player extends SpriteEntity {
         const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
-        super(GameConfig.GAME_WIDTH / 2, GameConfig.GAME_HEIGHT - 300, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, 0, GameConfig.Z_INDEX.PLAYER);
-
+        // Spawn using GameConfig.CANVAS dimensions
+        super(GameConfig.CANVAS.WIDTH / 2, GameConfig.CANVAS.HEIGHT - 300, GameConfig.SHIP_SIZE, GameConfig.SHIP_SIZE, image, frame, 0, GameConfig.Z_INDEX.PLAYER);
         this.currentVariant = safeIndex;
 
         // ==========================================
@@ -92,7 +92,7 @@ export class Player extends SpriteEntity {
     update(dt, pointerX, entityManager) {
         // 1. Constrain to screen bounds
         const minX = GameConfig.MARGIN_X + (this.width / 2);
-        const maxX = GameConfig.GAME_WIDTH - GameConfig.MARGIN_X - (this.width / 2);
+        const maxX = GameConfig.CANVAS.WIDTH - GameConfig.MARGIN_X - (this.width / 2);
 
         // 2. Calculate movement for visual tilt
         const dx = pointerX - this.x;

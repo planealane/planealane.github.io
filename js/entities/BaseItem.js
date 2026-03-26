@@ -24,9 +24,9 @@ export class BaseItem extends SpriteEntity {
     }
 
     checkBoundaries() {
-        if (this.y > GameConfig.GAME_HEIGHT + 200 || 
+        if (this.y > GameConfig.CANVAS_HEIGHT + 200 || 
             this.x < -200 || 
-            this.x > GameConfig.GAME_WIDTH + 200) {
+            this.x > GameConfig.CANVAS_WIDTH + 200) {
             this.markForDeletion = true;
         }
     }

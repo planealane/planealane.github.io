@@ -7,16 +7,16 @@ export class Boss extends SpriteEntity {
     constructor(x, y, image, maxHp, bossDef) {
         const frame = { sx: 0, sy: 0, sWidth: image.width, sHeight: image.height };
         
-        // 1. Calculate base dimensions
+        // 1. Calculate base dimensions using the logical game configuration
         const baseWidth = bossDef.width || GameConfig.BOSS_BASE_WIDTH; 
         const baseHeight = baseWidth * (image.height / image.width);
 
-        // 2. Apply scale to LOGICAL dimensions so Physics.js reads them correctly
+        // 2. Apply scale to LOGICAL dimensions so the physics engine reads them correctly
         const scale = bossDef.scale || 1.0;
         const physicalWidth = baseWidth * scale;
         const physicalHeight = baseHeight * scale;
 
-        // [MODIFIED] Using GameConfig.Z_INDEX.BOSS instead of 0
+        // Initialize SpriteEntity with the correct Z-Index layer
         super(x, y, physicalWidth, physicalHeight, image, frame, Math.PI, GameConfig.Z_INDEX.BOSS);
 
         this.speed = GameConfig.SCROLL_SPEED;
@@ -27,7 +27,7 @@ export class Boss extends SpriteEntity {
         // 3. CRUCIAL: Identify the entity for the collision manager
         // Add the tags your EntityManager typically looks for
         this.isEnemy = true; 
-        this.type = 'enemy'; // (or 'ENEMY' depending on your conventions)
+        this.type = 'enemy'; 
         
         // The animation "Juice" scale starts at 1.0 because the physical size is already scaled
         this.baseScale = 1.0;
@@ -41,13 +41,15 @@ export class Boss extends SpriteEntity {
     }
 
     update(dt) {
-        // Smooth return to normal size
+        // Smooth return to normal size (Lerp)
         if (this.currentScale < this.baseScale) {
             this.currentScale += (this.baseScale - this.currentScale) * 0.1;
         }
 
+        // Move downward
         this.y += this.speed * dt;
         
+        // [CRITICAL FIX] Use GAME_HEIGHT to properly despawn the boss if it leaves the screen
         if (this.y > GameConfig.GAME_HEIGHT + 300) {
             this.markForDeletion = true;
         }
@@ -69,7 +71,7 @@ export class Boss extends SpriteEntity {
         );
         ctx.restore();
 
-        // Render HP
+        // Render HP above the boss
         const textY = this.y - (this.height / 2) - 40;
         drawFloatingText(ctx, Math.ceil(this.hp).toString(), this.x, textY, '#8e44ad');
     }

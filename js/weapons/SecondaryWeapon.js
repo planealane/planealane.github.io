@@ -18,7 +18,7 @@ export class SecondaryWeapon extends Weapon {
             
             if (entity instanceof Enemy || entity instanceof Boss) {
                 // Must be fully entered on screen and not passed the bottom
-                if (entity.y > 0 && entity.y < GameConfig.GAME_HEIGHT) {
+                if (entity.y > 0 && entity.y < GameConfig.CANVAS_HEIGHT) {
                     return true;
                 }
             }

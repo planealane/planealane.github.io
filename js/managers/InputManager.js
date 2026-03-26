@@ -1,12 +1,14 @@
-// js/InputManager.js
+// js/managers/InputManager.js
 import { GameConfig } from '../GameConfig.js';
 
 export class InputManager {
     constructor(canvas) {
         this.canvas = canvas;
+        
+        // Initialize pointer exactly in the center of the logical canvas
         this.pointer = { 
-            x: GameConfig.GAME_WIDTH / 2, 
-            y: GameConfig.GAME_HEIGHT / 2, 
+            x: GameConfig.CANVAS.WIDTH / 2, 
+            y: GameConfig.CANVAS.HEIGHT / 2, 
             isDown: false 
         };
         this.keys = new Set();
@@ -15,11 +17,11 @@ export class InputManager {
     }
 
     initListeners() {
-        // Pointer events (Souris + Tactile)
+        // Pointer events (Mouse + Touch)
         this.canvas.addEventListener('pointerdown', (e) => this.updatePointer(e, true));
         this.canvas.addEventListener('pointermove', (e) => this.updatePointer(e, this.pointer.isDown));
         this.canvas.addEventListener('pointerup', (e) => this.updatePointer(e, false));
-        this.canvas.addEventListener('pointerleave', (e) => this.updatePointer(e, false)); // Sécurité
+        this.canvas.addEventListener('pointerleave', (e) => this.updatePointer(e, false)); // Safety fallback
 
         // Keyboard events
         window.addEventListener('keydown', (e) => this.keys.add(e.key.toLowerCase()));
@@ -28,16 +30,20 @@ export class InputManager {
 
     updatePointer(event, isDown) {
         this.pointer.isDown = isDown;
+        
+        // Get the actual physical size of the canvas on the screen
         const rect = this.canvas.getBoundingClientRect();
         
-        const scaleX = GameConfig.GAME_WIDTH / rect.width;
-        const scaleY = GameConfig.GAME_HEIGHT / rect.height;
+        // Calculate the scale difference between logical resolution and physical size
+        const scaleX = GameConfig.CANVAS.WIDTH / rect.width;
+        const scaleY = GameConfig.CANVAS.HEIGHT / rect.height;
         
+        // Apply the scale to get accurate in-game coordinates
         this.pointer.x = (event.clientX - rect.left) * scaleX;
         this.pointer.y = (event.clientY - rect.top) * scaleY;
     }
 
-    // Encapsulation: exposition propre de l'état
+    // Encapsulation: cleanly expose the state
     getPointer() {
         return this.pointer;
     }
