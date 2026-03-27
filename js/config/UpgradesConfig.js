@@ -41,14 +41,18 @@ const LOGIC = {
         player.primaryWeapon.stats.projectileSpeed += value;
     },
     'SECONDARY_DAMAGE': (player, value) => {
-        player.secondaryWeapon.stats.damage += value;
+        player.stats.flatSecondaryDamage = (player.stats.flatSecondaryDamage || 0) + value;
+        const baseDamage = WeaponConfig.BASE.SECONDARY ? WeaponConfig.BASE.SECONDARY.damage : 10;
+        player.secondaryWeapon.stats.damage = COMPUTE.damage(baseDamage, player.stats.flatSecondaryDamage, 1.0);
     },
     'SECONDARY_COUNT': (player, value) => {
-        player.secondaryWeapon.stats.count += value;
+        const baseCount = WeaponConfig.BASE.SECONDARY ? WeaponConfig.BASE.SECONDARY.count : 1;
+        player.secondaryWeapon.stats.count = (player.secondaryWeapon.stats.count || baseCount) + value;
     },
     'SECONDARY_COOLDOWN': (player, value) => {
         player.stats.flatSecondaryHaste = (player.stats.flatSecondaryHaste || 0) + value;
-        player.secondaryWeapon.stats.cooldown = COMPUTE.cooldown(WeaponConfig.BASE.SECONDARY.cooldown, player.stats.flatSecondaryHaste);
+        const baseCd = WeaponConfig.BASE.SECONDARY ? WeaponConfig.BASE.SECONDARY.cooldown : 1500;
+        player.secondaryWeapon.stats.cooldown = COMPUTE.cooldown(baseCd, player.stats.flatSecondaryHaste);
     }
 };
 

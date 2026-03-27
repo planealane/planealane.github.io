@@ -1,6 +1,7 @@
 // js/managers/VFXManager.js
 import { gameEvents, EVENTS } from '../core/EventBus.js';
-import { GameConfig } from '../GameConfig.js';
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Centralized visuals
+import { UIConfig } from '../UIConfig.js'; // [NEW] For typography
 import { ExplosionEntity } from '../entities/Explosion.js';
 
 export class VFXManager {
@@ -69,8 +70,10 @@ export class VFXManager {
     onEnemyDestroyed(payload) {
         if (!payload || payload.x === undefined || payload.y === undefined) return;
 
-        const w = (payload.width > 0) ? payload.width : GameConfig.SHIP_SIZE;
-        const h = (payload.height > 0) ? payload.height : GameConfig.SHIP_SIZE;
+        // Default to enemy size from visual config if dimensions are missing
+        const defaultSize = EntityVisualsConfig.ENEMY.SIZE;
+        const w = (payload.width > 0) ? payload.width : defaultSize;
+        const h = (payload.height > 0) ? payload.height : defaultSize;
 
         // Geometric rule: If wider than tall, tile explosions horizontally
         if (w > h * 1.5) {
@@ -86,10 +89,10 @@ export class VFXManager {
             this.addExplosion(payload.x, payload.y, w, h);
         }
 
-        // Light screen shake for standard enemies
-        this.triggerShake(3, 150);
-        // Freeze game loop for 40ms to emphasize the kill
-        gameEvents.emit(EVENTS.HIT_STOP, 30);
+        // Apply shake and hit stop from configuration
+        const shakeCfg = EntityVisualsConfig.VFX.SHAKE.ENEMY_KILL;
+        this.triggerShake(shakeCfg.intensity, shakeCfg.duration);
+        gameEvents.emit(EVENTS.HIT_STOP, EntityVisualsConfig.VFX.HIT_STOP.ENEMY_KILL);
     }
 
     /**
@@ -101,8 +104,9 @@ export class VFXManager {
             this.addExplosion(payload.x, payload.y);
         }
 
-        // Heavy, long shake for player death
-        this.triggerShake(15, 600);
+        // Heavy, long shake for player death from config
+        const shakeCfg = EntityVisualsConfig.VFX.SHAKE.PLAYER_DEATH;
+        this.triggerShake(shakeCfg.intensity, shakeCfg.duration);
     }
 
     /**
@@ -116,7 +120,8 @@ export class VFXManager {
 
             // Medium shake if the entity taking damage is the player
             if (payload.isPlayer) {
-                this.triggerShake(8, 250);
+                const shakeCfg = EntityVisualsConfig.VFX.SHAKE.PLAYER_HIT;
+                this.triggerShake(shakeCfg.intensity, shakeCfg.duration);
             }
         }
     }
@@ -134,11 +139,11 @@ export class VFXManager {
     }
 
     /**
-         * Handles the SPEED_LINES event, spawning the hyper-speed edge lines effect.
-         * @param {Object} payload - Event data containing duration and color
-         */
+     * Handles the SPEED_LINES event, spawning the hyper-speed edge lines effect.
+     * @param {Object} payload - Event data containing duration and color
+     */
     onSpeedLines(payload) {
-        // On passe la couleur à notre effet (blanc par défaut si non fourni)
+        // Pass color to the effect (defaults to white if not provided)
         this.effects.push(new SpeedLinesEffect(payload.duration || 2000, payload.color || '#ffffff'));
     }
 
@@ -149,7 +154,7 @@ export class VFXManager {
      * @param {number} width - Target width of the explosion
      * @param {number} height - Target height of the explosion
      */
-    addExplosion(x, y, width = GameConfig.SHIP_SIZE, height = GameConfig.SHIP_SIZE) {
+    addExplosion(x, y, width = EntityVisualsConfig.ENEMY.SIZE, height = EntityVisualsConfig.ENEMY.SIZE) {
         const image = this.assets.getImage('props');
         this.effects.push(new ExplosionEntity(x, y, image, width, height));
     }
@@ -250,9 +255,12 @@ class FloatingText {
         this.text = text;
         this.color = color;
         this.isDead = false;
-        this.duration = 800;
+        
+        // Fetch values from configuration
+        const cfg = EntityVisualsConfig.VFX.FLOATING_TEXT;
+        this.duration = cfg.DURATION;
+        this.floatSpeed = cfg.FLOAT_SPEED;
         this.elapsed = 0;
-        this.floatSpeed = 0.05;
     }
 
     /**
@@ -278,8 +286,9 @@ class FloatingText {
         ctx.globalAlpha = lifeRatio;
         ctx.fillStyle = this.color;
 
-        const fontSize = GameConfig.FONT_SIZE_SM || 20;
-        const fontFamily = GameConfig.FONT_FAMILY || 'sans-serif';
+        // Use UIConfig for typography consistency
+        const fontSize = UIConfig.TYPOGRAPHY.SIZE_SM;
+        const fontFamily = UIConfig.TYPOGRAPHY.FAMILY;
 
         ctx.font = `bold ${fontSize}px ${fontFamily}`;
         ctx.textAlign = 'center';
@@ -296,32 +305,33 @@ class SpeedLinesEffect {
      */
     constructor(duration = 2000, color = '#ffffff') {
         this.duration = duration;
-        this.color = color; // On stocke la couleur
+        this.color = color; 
         this.elapsed = 0;
         this.isDead = false;
         this.lines = [];
+        
+        const lineCount = EntityVisualsConfig.VFX.SPEED_LINES.LINE_COUNT;
 
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < lineCount; i++) {
             this.lines.push(this.createLine(true));
         }
     }
 
     createLine(randomY = false) {
+        const cfg = EntityVisualsConfig.VFX.SPEED_LINES;
         const isLeft = Math.random() > 0.5;
         const xPct = isLeft ? (Math.random() * 0.15) : (0.85 + Math.random() * 0.15);
 
         return {
             xPct: xPct,
-            // CHANGEMENT DIRECTION : Si on recycle la ligne, on la place AU-DESSUS de l'écran (ex: -0.5)
+            // If recycled, place above the screen (-0.5)
             yPct: randomY ? Math.random() : -0.5,
             lengthPct: 0.1 + Math.random() * 0.4,
             speed: 2.0 + Math.random() * 3.0,
             alpha: 0.1 + Math.random() * 0.4,
 
-            // ---> C'EST ICI POUR L'ÉPAISSEUR <---
-            // Math.random() > 0.8 veut dire "20% de chances d'être plus épaisse".
-            // Tu peux changer les valeurs (ex: 4 et 2 au lieu de 3 et 1) pour des lignes plus grosses en pixel art.
-            width: Math.random() > 0.8 ? 8 : 4
+            // Determine line thickness based on config probabilities
+            width: Math.random() > cfg.THICK_CHANCE ? cfg.WIDTH_THICK : cfg.WIDTH_THIN
         };
     }
 
@@ -336,10 +346,10 @@ class SpeedLinesEffect {
         for (let i = 0; i < this.lines.length; i++) {
             let l = this.lines[i];
 
-            // CHANGEMENT DIRECTION : On AJOUTE la vitesse pour descendre (de haut en bas)
+            // Move lines downward
             l.yPct += l.speed * dtSec;
 
-            // CHANGEMENT DIRECTION : Si la ligne sort par le BAS (> 1.0), on la recycle en haut
+            // If a line exits the bottom of the screen (> 1.0), recycle it at the top
             if (l.yPct > 1.0) {
                 this.lines[i] = this.createLine(false);
             }
@@ -354,13 +364,12 @@ class SpeedLinesEffect {
         const fadeAlpha = Math.min(1, lifeRatio * 3);
 
         ctx.save();
-        // CHANGEMENT COULEUR : On utilise la couleur reçue lors de la création
         ctx.fillStyle = this.color;
 
         for (let i = 0; i < this.lines.length; i++) {
             let l = this.lines[i];
             ctx.globalAlpha = fadeAlpha * l.alpha;
-            // On utilise Math.floor pour rester net (style Pixel Art)
+            // Use Math.floor to maintain sharp pixel art aesthetics
             ctx.fillRect(Math.floor(l.xPct * w), Math.floor(l.yPct * h), l.width, Math.floor(l.lengthPct * h));
         }
 

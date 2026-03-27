@@ -41,5 +41,30 @@ export const EntityVisualsConfig = {
 
     PROJECTILE: {
         SIZE: 64
+    },
+
+    // ==========================================
+    // VISUAL EFFECTS (VFX) SETTINGS
+    // ==========================================
+    VFX: {
+        SHAKE: {
+            // Default intensities and durations for different events
+            ENEMY_KILL: { intensity: 3, duration: 150 },
+            PLAYER_HIT: { intensity: 8, duration: 250 },
+            PLAYER_DEATH: { intensity: 15, duration: 600 }
+        },
+        HIT_STOP: {
+            ENEMY_KILL: 30 // Milliseconds to freeze the frame on kill
+        },
+        FLOATING_TEXT: {
+            DURATION: 800,
+            FLOAT_SPEED: 0.05
+        },
+        SPEED_LINES: {
+            LINE_COUNT: 30,
+            WIDTH_THIN: 4,
+            WIDTH_THICK: 8,
+            THICK_CHANCE: 0.8 // 20% chance to be thick (Math.random() > 0.8)
+        }
     }
 };

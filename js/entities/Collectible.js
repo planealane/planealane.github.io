@@ -1,8 +1,7 @@
 // js/entities/Collectible.js
 import { UIConfig } from '../UIConfig.js';
-import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Import des visuels
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js';
 import { PropsAtlas } from '../utils/Atlas.js';
-import { drawBonusText } from './Entity.js';
 import { BaseItem } from './BaseItem.js';
 import { UpgradesConfig } from '../config/UpgradesConfig.js'; 
 
@@ -10,22 +9,28 @@ export class Collectible extends BaseItem {
     constructor(x, y, image, type, tierIndex = 0) {
         const frame = PropsAtlas.bonus;
         
-        // [MODIFIÉ] On récupère la taille depuis la nouvelle config visuelle (moitié du joueur)
+        // Taille basée sur le joueur
         const itemSize = EntityVisualsConfig.PLAYER.SIZE / 2;
 
-        // [MODIFIÉ] On utilise le Z-Index depuis EntityVisualsConfig
         super(x, y, itemSize, itemSize, image, frame, EntityVisualsConfig.Z_INDEX.COLLECTIBLE);
         
+        // C'est `this.type` ici, pas `this.bonusType` !
         this.type = type;
         this.tierIndex = tierIndex;
         
-        this.bonusValue = UpgradesConfig.PORTALS[this.type] ? UpgradesConfig.PORTALS[this.type][this.tierIndex] : 0;
+        // Protection anti-crash : on vérifie que l'upgrade existe bien dans PORTALS avant de lire son Tier
+        if (UpgradesConfig.PORTALS[this.type]) {
+            this.bonusValue = UpgradesConfig.PORTALS[this.type][this.tierIndex];
+        } else {
+            this.bonusValue = 0; // Sécurité si c'est un autre type de loot
+        }
         
         this.floatSpeed = 0.004;
         this.floatAmplitude = 8;
         
         const visualConfig = UIConfig.SCREENS.IN_GAME.BONUS_VISUALS;
-        this.text = visualConfig.getLabel(this.type, this.bonusValue);
+        
+        this.text = visualConfig.getLabel(this.type, this.tierIndex);
         this.color = visualConfig.getColor(this.type);
     }
 
@@ -54,7 +59,12 @@ export class Collectible extends BaseItem {
         const fontSize = UIConfig.SCREENS.IN_GAME.BONUS_VISUALS.FONT_SIZE_DROP;
         const textY = -this.height / 2 - (fontSize / 2);
 
-        drawBonusText(ctx, this.text, 0, textY, this.color, fontSize);
+        // [NOUVEAU] Utilisation de notre moteur de texte pour gérer les \n nativement !
+        UIConfig.drawText(ctx, this.text, 0, textY, {
+            fontSize: fontSize,
+            color: this.color,
+            weight: '900' // Typographie bien grasse pour un loot
+        });
 
         ctx.restore();
     }

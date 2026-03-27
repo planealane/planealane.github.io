@@ -5,7 +5,6 @@ export const UIConfig = {
     // 🌍 GLOBAUX & FONDATIONS VISUELLES
     // ==========================================
 
-
     TYPOGRAPHY: {
         FAMILY: "'GameFont', sans-serif",
         SIZE_SM: 40, // Petit texte UI
@@ -86,17 +85,16 @@ export const UIConfig = {
             PLAY_BTN_SCALE: 2,
             TRANSITION_MS: 1500,
 
-            // Nouveaux éléments extraits :
             TEXT: {
                 PLAY_BTN: 'PLAY'
             },
             COLORS: {
-                FALLBACK_BG: '#111111' // Remplacera le '#111' en dur
+                FALLBACK_BG: '#111111'
             },
             LAYOUT: {
-                TITLE_MAX_WIDTH_PCT: 0.8, // Le titre prend max 80% de l'écran
-                SQUAT_AMPLITUDE: 60,      // L'effet de recul avant décollage
-                TRAIL_SPEED_MULT: 3       // Multiplicateur de traînée pendant le décollage
+                TITLE_MAX_WIDTH_PCT: 0.8,
+                SQUAT_AMPLITUDE: 60,
+                TRAIL_SPEED_MULT: 3
             }
         },
 
@@ -110,39 +108,75 @@ export const UIConfig = {
                 SHADOW_COLOR: 'rgba(0, 0, 0, 0.8)',
                 SHADOW_BLUR: 4,
                 SHADOW_OFFSET_Y: 2,
+
                 COLORS: {
                     PRIMARY: '#e67e22',
                     SECONDARY: '#3498db',
                     HULL: '#2ecc71',
                     DEFAULT: '#ffffff'
                 },
+
+                // Keys here perfectly match UpgradesConfig.PORTALS
+                LABELS: {
+                    'PRIMARY_DAMAGE': [
+                        'GUN DAMAGE I',
+                        'GUN DAMAGE II',
+                        'GUN DAMAGE III'
+                    ],
+                    'PRIMARY_FIRE_RATE': [
+                        'GUN SPEED I',
+                        'GUN SPEED II',
+                        'GUN SPEED III'
+                    ],
+                    'PRIMARY_BULLET_SPEED': [
+                        'VELOCITY I',
+                        'VELOCITY II',
+                        'VELOCITY III'
+                    ],
+                    'SECONDARY_DAMAGE': [
+                        'MISSILE DAMAGE I',
+                        'MISSILE DAMAGE II',
+                        'MISSILE DAMAGE III'
+                    ],
+                    'SECONDARY_COUNT': [
+                        'MISSILE COUNT +1',
+                        'MISSILE COUNT +2',
+                        'MISSILE COUNT +3'
+                    ],
+                    'SECONDARY_COOLDOWN': [
+                        'MISSILE RELOAD I',
+                        'MISSILE RELOAD II',
+                        'MISSILE RELOAD III'
+                    ],
+                    'HULL_REPAIR': [
+                        'HULL REPAIR I',
+                        'HULL REPAIR II',
+                        'HULL REPAIR III'
+                    ]
+                },
+
                 getColor: function (type) {
                     if (type.startsWith('PRIMARY')) return this.COLORS.PRIMARY;
                     if (type.startsWith('SECONDARY')) return this.COLORS.SECONDARY;
                     if (type.startsWith('HULL')) return this.COLORS.HULL;
                     return this.COLORS.DEFAULT;
                 },
-                getLabel: function (type, value) {
-                    switch (type) {
-                        case 'HULL_REPAIR': return `+${value} HP`;
-                        case 'PRIMARY_DAMAGE': return `+${value} DMG`;
-                        case 'PRIMARY_FIRE_RATE': return `-${value}ms CD`;
-                        case 'PRIMARY_BULLET_SPEED': return `+${value} VEL`;
-                        case 'SECONDARY_DAMAGE': return `+${value} DMG`;
-                        case 'SECONDARY_COUNT': return `+${value} PROJ`;
-                        case 'SECONDARY_COOLDOWN': return `-${Math.round(value * 100)}% CD`;
-                        default: return `UPGRADE`;
+
+                getLabel: function (type, tierIndex = 0) {
+                    if (this.LABELS[type] && this.LABELS[type][tierIndex]) {
+                        return this.LABELS[type][tierIndex];
                     }
+                    return 'UNKNOWN\nUPGRADE';
                 }
             },
 
             TIMING: {
-                FADE_IN_DURATION: 600,        // Duration of the black fade at start
+                FADE_IN_DURATION: 600,
                 FADE_IN_COLOR: '#000000',
-                TUTORIAL_DELAY: 600,          // Wait time before showing the tutorial
-                SPEED_LINES_DURATION: 2500,   // Duration of speed lines after upgrade
-                GAMEOVER_SLOWMO_DURATION: 2000, // How long the death slow-mo lasts
-                GAMEOVER_TIME_SCALE: 0.25     // Slow-mo factor (25% speed)
+                TUTORIAL_DELAY: 600,
+                SPEED_LINES_DURATION: 2500,
+                GAMEOVER_SLOWMO_DURATION: 2000,
+                GAMEOVER_TIME_SCALE: 0.25
             }
         },
 
@@ -154,7 +188,6 @@ export const UIConfig = {
             BOUNCE_MS: 1750,
             BTN_SLIDE_MS: 1500,
 
-            // NOUVEAU : Centralisation des textes, couleurs et dimensions
             TEXT: {
                 TITLE: 'GAME OVER',
                 REPLAY: 'REPLAY',
@@ -163,23 +196,23 @@ export const UIConfig = {
             COLORS: {
                 TITLE: '#e74c3c',
                 TITLE_SHADOW: 'rgba(241, 196, 15, 0.5)',
-                OVERLAY: 'rgba(0, 0, 0, 0.75)' // Remplacera le calcul `rgba(0,0,0, 0.75 * fade)`
+                OVERLAY: 'rgba(0, 0, 0, 0.75)'
             },
             LAYOUT: {
                 BTN_WIDTH_MULT: 1.4,
                 BTN_MAX_WIDTH_PCT: 0.8,
                 BTN_HEIGHT_MULT: 1.5,
                 BTN_MARGIN_Y_PCT: 0.05,
-                TITLE_Y_PCT: 0.25,        // Position Y cible du titre
-                TITLE_START_Y: -200,      // Position de départ du rebond
-                TITLE_FONT_SIZE: 150,     // Taille de la police du titre
-                TITLE_SHADOW_BLUR: 20,    // Intensité de l'ombre
-                BTN_START_Y_OFFSET: 50    // Distance de glissement des boutons
+                TITLE_Y_PCT: 0.25,
+                TITLE_START_Y: -200,
+                TITLE_FONT_SIZE: 150,
+                TITLE_SHADOW_BLUR: 20,
+                BTN_START_Y_OFFSET: 50
             },
             TRANSITIONS: {
                 TYPE: 'IRIS',
                 DURATION_MS: 1000,
-                STAGGER_DELAY: 0.15       // Délai entre l'apparition des boutons
+                STAGGER_DELAY: 0.15
             }
         },
 
@@ -190,7 +223,6 @@ export const UIConfig = {
             },
             COLORS: {
                 OVERLAY_BG: 'rgba(0, 0, 0, 0.85)',
-                // On met les couleurs de rareté dans un tableau (0: Basic, 1: Rare, 2: Legendary, 3: Default)
                 TIERS: ['#3498db', '#9b59b6', '#f1c40f', '#ffffff'],
                 CARD_BG_NORMAL: '#1a252f',
                 CARD_BG_HOVER: '#2c3e50',
@@ -206,16 +238,16 @@ export const UIConfig = {
                 BORDER_NORMAL: 3,
                 BORDER_HOVER: 6,
                 SHADOW_BLUR: 20,
-                TITLE_Y_PCT: 0.15,        // Position du titre principal
-                SPRITE_SIZE_PCT: 0.6,     // Taille du sprite dans la carte
-                SPRITE_Y_PCT: 0.15,       // Position Y du sprite
-                CARD_TITLE_Y_PCT: 0.6,    // Position Y du nom de l'amélioration
-                CARD_DESC_Y_PCT: 0.75     // Position Y de la description
+                TITLE_Y_PCT: 0.15,
+                SPRITE_SIZE_PCT: 0.6,
+                SPRITE_Y_PCT: 0.15,
+                CARD_TITLE_Y_PCT: 0.6,
+                CARD_DESC_Y_PCT: 0.75
             },
             TIMING: {
-                ANIMATION_MS: 600,        // Durée des particules avant fermeture
-                CLICK_DELAY_MS: 500,      // Anti-spam à l'ouverture
-                FADE_OUT_MS: 400          // Transition de fermeture
+                ANIMATION_MS: 600,
+                CLICK_DELAY_MS: 500,
+                FADE_OUT_MS: 400
             },
             PARTICLES: {
                 COUNT: 40,
@@ -231,41 +263,80 @@ export const UIConfig = {
                 BTN_PLAY: 'PLAY NOW',
                 TITLE_SCREEN_1: 'WEAPON SYSTEMS',
                 TITLE_SCREEN_2: 'UPGRADE PORTALS',
-                PRIMARY_TITLE: 'PRIMARY WEAPON',
-                PRIMARY_DESC: 'Direct physical damage.',
-                SECONDARY_TITLE: 'SECONDARY WEAPON',
-                SECONDARY_DESC: 'Homing explosive ordinance.',
-                GATE_PRIMARY_DESC: 'Orange upgrades the primary weapon...',
-                GATE_SECONDARY_DESC: '...and Blue upgrades the secondary !'
+                PRIMARY_TITLE: 'GUN',
+                PRIMARY_DESC: 'Direct physical \ndamage.',
+                SECONDARY_TITLE: 'MISSILES',
+                SECONDARY_DESC: 'Homing explosive\nordinance.',
+                GATE_PRIMARY_DESC: 'Orange upgrades the \nprimary weapon...',
+                GATE_SECONDARY_DESC: '...and Blue upgrades \nthe secondary !'
+            },
+            STYLES: {
+                MAIN_TITLE: { weight: 'bold', fontSize: 40, color: '#ffffff' },
+                SIM_TITLE: { weight: 'bold', fontSize: 44, color: '#ffffff' },
+                SIM_DESC: { weight: 'normal', fontSize: 32, color: '#aaaaaa', lineHeight: 38 },
+                GATE_DESC_PRIMARY: { weight: 'bold', fontSize: 24, color: '#ff9900' },
+                GATE_DESC_SECONDARY: { weight: 'bold', fontSize: 24, color: '#00ccff' }
             },
             COLORS: {
                 OVERLAY: 'rgba(0, 0, 0, 0.9)',
-                TEXT_MAIN: '#ffffff',
-                TEXT_DESC: '#aaaaaa',
                 BOX_BG: '#0a0a0a',
                 BOX_BORDER: '#444444',
-                GATE_PRIMARY: '#ff9900',   // Orange
-                GATE_SECONDARY: '#00ccff'  // Blue
+                GATE_PRIMARY: '#ff9900',
+                GATE_SECONDARY: '#00ccff'
             },
             LAYOUT: {
                 BTN_Y_PCT: 0.85,
                 BTN_WIDTH_MULT: 1.4,
                 BTN_MAX_WIDTH_PCT: 0.8,
                 BTN_HEIGHT_MULT: 1.5,
-
-                // Dimensions des boîtes de simulation
                 BOX_WIDTH: 300,
                 BOX_HEIGHT: 800,
-                BOX_SPACING: 20,          // Écart par rapport au centre
+                BOX_SPACING: 20,
                 BOX_BORDER_WIDTH: 4,
-
-                // Positions relatives
-                TITLE_Y_PCT: 0.10,        // Y du grand titre
+                TITLE_Y_PCT: 0.10,
                 TITLE_SCREEN_2_Y_PCT: 0.15,
-                DESC_OFFSET_Y_1: 60,      // Décalage du titre sous la boîte
-                DESC_OFFSET_Y_2: 110,     // Décalage de la description sous la boîte
-                GATE_DESC_OFFSET_Y: 120   // Décalage du texte sous les portes
+                DESC_OFFSET_Y_1: 60,
+                DESC_OFFSET_Y_2: 110,
+                GATE_DESC_OFFSET_Y: 120,
+                // [NEW] Vertical spacing between the stacked gates
+                GATE_SPACING_Y: 350
             }
         },
+    },
+
+    // ============================================================================
+    // MOTEUR DE RENDU DE TEXTE UNIVERSEL
+    // ============================================================================
+    /**
+     * Dessine un texte (multiligne ou non) en appliquant automatiquement un style.
+     * @param {CanvasRenderingContext2D} ctx - Le contexte du canvas
+     * @param {string} text - Le texte à afficher (accepte les '\n')
+     * @param {number} x - Position X
+     * @param {number} y - Position Y
+     * @param {Object} style - Objet de configuration visuelle
+     */
+    drawText: function (ctx, text, x, y, style = {}) {
+        if (text === undefined || text === null) return;
+
+        // Paramètres par défaut sécurisés (fallback sur ta TYPOGRAPHY)
+        const fontSize = style.fontSize || this.TYPOGRAPHY.SIZE_MD;
+        const fontFamily = style.fontFamily || this.TYPOGRAPHY.FAMILY;
+        const weight = style.weight || 'normal';
+        const lineHeight = style.lineHeight || (fontSize * 1.2);
+
+        ctx.save();
+
+        ctx.font = `${weight} ${fontSize}px ${fontFamily}`;
+        ctx.fillStyle = style.color || '#ffffff';
+        ctx.textAlign = style.align || 'center';
+        ctx.textBaseline = style.baseline || 'middle';
+
+        // Gestion du multiligne native !
+        const lines = text.toString().split('\n');
+        lines.forEach((line, index) => {
+            ctx.fillText(line, x, y + (index * lineHeight));
+        });
+
+        ctx.restore();
     }
 };

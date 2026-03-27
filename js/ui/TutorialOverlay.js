@@ -35,20 +35,20 @@ export class TutorialOverlay {
         this.animTimer = 0; 
         
         this.animConfig = {
-            slideDuration: 1000,  // [MODIFIED] Increased to 1 second for a much smoother glide
+            slideDuration: 1000,  
             bgFadeDuration: 800,  
             
-            // [MODIFIED] Extended delays with clear pauses between elements
+            // Extended delays with clear pauses between elements
             delaysScreen1: {
                 title: 400,       
-                screen1: 900,     // Solid pause after title
-                legend1: 1200,    // Wait for screen 1 to settle a bit
-                screen2: 1700,    // Big pause before secondary screen enters
+                screen1: 900,     
+                legend1: 1200,    
+                screen2: 1700,    
                 legend2: 2000,    
-                button: 2600      // Button fades in last
+                button: 2600      
             },
             
-            // [MODIFIED] Spaced out the Screen 2 choreography as well
+            // Spaced out the Screen 2 choreography
             delaysScreen2: {
                 title: 0,
                 screen1: 400,
@@ -70,6 +70,7 @@ export class TutorialOverlay {
             buttonOpacity: 0
         };
 
+        // State containers for the fake background simulations
         this.simulations = {
             primary: {
                 player: null, enemies: [], projectiles: [],
@@ -92,7 +93,7 @@ export class TutorialOverlay {
         this.initSimulations();
         this.initUI();
         
-        // [CRITICAL FIX] Force position calculation BEFORE the first draw() call to prevent the frame-1 flash
+        // Force position calculation BEFORE the first draw() call to prevent the frame-1 flash
         this.updateAnimationChoreography(); 
     }
 
@@ -117,7 +118,7 @@ export class TutorialOverlay {
                     this.currentScreen = 2;
                     this.animTimer = 0; 
                     this.initUI(); 
-                    // [CRITICAL FIX] Prevent the flash when switching to screen 2
+                    // Prevent the flash when switching to screen 2
                     this.updateAnimationChoreography(); 
                 },
                 { width: btnWidth, height: btnHeight, fontSize: btnFontSize }
@@ -148,6 +149,7 @@ export class TutorialOverlay {
 
         const shipImage = this.gameManager.assets.getImage('ships');
 
+        // Helper to strip HP drawing logic from tutorial enemies
         const hideEnemyHP = (enemy) => {
             const originalDraw = enemy.draw.bind(enemy);
             enemy.draw = (ctx) => {
@@ -191,18 +193,23 @@ export class TutorialOverlay {
         this.simulations.secondary.enemies.push(sEnemy1);
 
         // ==========================================
-        // SCREEN 2: GATES SETUP
+        // SCREEN 2: GATES SETUP (STACKED LAYOUT)
         // ==========================================
         
         const gateImage = this.gameManager.assets.getImage('gate'); 
         const configColors = UIConfig.SCREENS.TUTORIAL.COLORS;
+        const gateSpacingY = layout.GATE_SPACING_Y;
+        
+        // Calculate the starting Y to ensure the two gates are perfectly centered
+        const topGateY = centerY - (gateSpacingY / 2) - 50; 
+        const bottomGateY = topGateY + gateSpacingY;
 
-        const primaryGate = new Gate(centerX - 200, centerY - 50, gateImage, 1);
+        const primaryGate = new Gate(centerX, topGateY, gateImage, 1);
         primaryGate.text = '+ PRIMARY DMG'; 
         primaryGate.color = configColors.GATE_PRIMARY;     
         this.simulations.gates.primary = primaryGate;
 
-        const secondaryGate = new Gate(centerX + 200, centerY - 50, gateImage, 1);
+        const secondaryGate = new Gate(centerX, bottomGateY, gateImage, 1);
         secondaryGate.text = '+ SECONDARY HASTE'; 
         secondaryGate.color = configColors.GATE_SECONDARY;          
         this.simulations.gates.secondary = secondaryGate;
@@ -366,20 +373,15 @@ export class TutorialOverlay {
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
         const config = UIConfig.SCREENS.TUTORIAL;
-        const typo = UIConfig.TYPOGRAPHY;
 
         // 1. Draw animated background overlay
         ctx.fillStyle = `rgba(0, 0, 0, ${this.animState.bgOpacity})`;
         ctx.fillRect(0, 0, width, height);
 
         if (this.currentScreen === 1) {
-            // Draw Title (from left)
-            ctx.fillStyle = config.COLORS.TEXT_MAIN;
-            ctx.font = `bold ${typo.SIZE_SM}px ${typo.FAMILY}`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            // Draw Title (from left) using the new engine
             const titleX = (width / 2) + this.animState.titleOffsetX;
-            ctx.fillText(config.TEXT.TITLE_SCREEN_1, titleX, height * config.LAYOUT.TITLE_Y_PCT);
+            UIConfig.drawText(ctx, config.TEXT.TITLE_SCREEN_1, titleX, height * config.LAYOUT.TITLE_Y_PCT, config.STYLES.MAIN_TITLE);
 
             // Draw Primary Simulation (from right)
             ctx.save();
@@ -395,29 +397,23 @@ export class TutorialOverlay {
 
         } else if (this.currentScreen === 2) {
             // Draw Title (from left)
-            ctx.fillStyle = config.COLORS.TEXT_MAIN;
-            ctx.font = `bold ${typo.SIZE_SM}px ${typo.FAMILY}`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
             const titleX = (width / 2) + this.animState.titleOffsetX;
-            ctx.fillText(config.TEXT.TITLE_SCREEN_2, titleX, height * config.LAYOUT.TITLE_SCREEN_2_Y_PCT);
+            UIConfig.drawText(ctx, config.TEXT.TITLE_SCREEN_2, titleX, height * config.LAYOUT.TITLE_SCREEN_2_Y_PCT, config.STYLES.MAIN_TITLE);
 
             // Draw Primary Gate (from right)
             ctx.save();
             ctx.translate(this.animState.screen1OffsetX, 0);
             this.simulations.gates.primary.draw(ctx);
-            ctx.font = `bold ${typo.SIZE_SM * 0.6}px ${typo.FAMILY}`;
-            ctx.fillStyle = this.simulations.gates.primary.color;
-            ctx.fillText(config.TEXT.GATE_PRIMARY_DESC, this.simulations.gates.primary.x, this.simulations.gates.primary.y + config.LAYOUT.GATE_DESC_OFFSET_Y);
+            // Render gate description text using universal text engine
+            UIConfig.drawText(ctx, config.TEXT.GATE_PRIMARY_DESC, this.simulations.gates.primary.x, this.simulations.gates.primary.y + config.LAYOUT.GATE_DESC_OFFSET_Y, config.STYLES.GATE_DESC_PRIMARY);
             ctx.restore();
 
             // Draw Secondary Gate (from right)
             ctx.save();
             ctx.translate(this.animState.screen2OffsetX, 0);
             this.simulations.gates.secondary.draw(ctx);
-            ctx.font = `bold ${typo.SIZE_SM * 0.6}px ${typo.FAMILY}`;
-            ctx.fillStyle = this.simulations.gates.secondary.color;
-            ctx.fillText(config.TEXT.GATE_SECONDARY_DESC, this.simulations.gates.secondary.x, this.simulations.gates.secondary.y + config.LAYOUT.GATE_DESC_OFFSET_Y);
+            // Render gate description text using universal text engine
+            UIConfig.drawText(ctx, config.TEXT.GATE_SECONDARY_DESC, this.simulations.gates.secondary.x, this.simulations.gates.secondary.y + config.LAYOUT.GATE_DESC_OFFSET_Y, config.STYLES.GATE_DESC_SECONDARY);
             ctx.restore();
         }
 
@@ -433,7 +429,6 @@ export class TutorialOverlay {
     drawFakeGameplay(ctx, simState, title, description, textOffset = 0) {
         const box = simState.box;
         const config = UIConfig.SCREENS.TUTORIAL;
-        const typo = UIConfig.TYPOGRAPHY;
 
         // Draw the simulation box
         ctx.strokeStyle = config.COLORS.BOX_BORDER;
@@ -443,14 +438,14 @@ export class TutorialOverlay {
         // Draw the text (legend) with an additional offset so it arrives *after* the box
         ctx.save();
         ctx.translate(textOffset, 0);
-        ctx.textAlign = 'center';
-        ctx.fillStyle = config.COLORS.TEXT_MAIN;
-        ctx.font = `bold ${typo.SIZE_SM * 1.1}px ${typo.FAMILY}`;
-        ctx.fillText(title, box.x + box.w / 2, box.y + box.h + config.LAYOUT.DESC_OFFSET_Y_1);
+        
+        const centerX = box.x + box.w / 2;
+        const bottomY = box.y + box.h;
 
-        ctx.fillStyle = config.COLORS.TEXT_DESC;
-        ctx.font = `${typo.SIZE_SM * 0.8}px ${typo.FAMILY}`;
-        ctx.fillText(description, box.x + box.w / 2, box.y + box.h + config.LAYOUT.DESC_OFFSET_Y_2);
+        // Using the new ultra-clean text engine
+        UIConfig.drawText(ctx, title, centerX, bottomY + config.LAYOUT.DESC_OFFSET_Y_1, config.STYLES.SIM_TITLE);
+        UIConfig.drawText(ctx, description, centerX, bottomY + config.LAYOUT.DESC_OFFSET_Y_2, config.STYLES.SIM_DESC);
+
         ctx.restore();
 
         // Clip and draw the simulation contents

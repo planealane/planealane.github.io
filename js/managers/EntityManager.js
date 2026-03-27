@@ -120,7 +120,7 @@ export class EntityManager {
 
         // D. Player vs Gates (Portal upgrades)
         gates.forEach(gate => {
-            if (gate.markForDeletion) return;
+            if (gate.markForDeletion || gate.isDespawning) return; // [MODIFIED] Don't process gates that are fading away
 
             if (checkAABB(player, gate)) {
 
@@ -131,10 +131,12 @@ export class EntityManager {
 
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'bonus', volume: 0.8 });
 
-                // Destroy adjacent gates on the same Y axis
+                // [MODIFIED] Instead of destroying immediately, find other gates on the same Y axis and make them blink
                 gates.forEach(g => {
-                    if (Math.abs(g.y - gate.y) < 20) {
-                        g.markForDeletion = true;
+                    if (g === gate) {
+                        g.markForDeletion = true; // Destroy the one we actually touched
+                    } else if (Math.abs(g.y - gate.y) < 20) {
+                        g.startDespawn(2000); // Make the unchosen one(s) blink and vanish
                     }
                 });
             }
@@ -149,7 +151,6 @@ export class EntityManager {
                 superLoot.markForDeletion = true;
                 gameEvents.emit(EVENTS.PLAY_SFX, { id: 'super_bonus', volume: 1.0 });
 
-                // [MODIFIÉ] On ajoute le type de boss à l'événement !
                 gameEvents.emit(EVENTS.SUPER_LOOT_PICKUP, {
                     player: player,
                     wave: currentWave,
