@@ -18,9 +18,9 @@ export const UIConfig = {
 
     TYPOGRAPHY: {
         FAMILY: FONT_FAMILY,
-        SIZE_SM: BASE_SM, 
-        SIZE_MD: BASE_MD, 
-        SIZE_LG: BASE_LG  
+        SIZE_SM: BASE_SM,
+        SIZE_MD: BASE_MD,
+        SIZE_LG: BASE_LG
     },
 
     // ==========================================
@@ -60,8 +60,8 @@ export const UIConfig = {
     SCREENS: {
         // --- ÉCRAN DE CHARGEMENT ---
         LOAD: {
-            DURATION_MS: 1500,     
-            TRANSITION_MS: 500,    
+            DURATION_MS: 1500,
+            TRANSITION_MS: 500,
 
             TEXT: {
                 LOADING: 'LOADING SYSTEM...',
@@ -122,6 +122,7 @@ export const UIConfig = {
                     PRIMARY: '#e67e22',
                     SECONDARY: '#3498db',
                     HULL: '#2ecc71',
+                    EXTRA: '#9b59b6', // [NOUVEAU] Catégorie générique (Violet)
                     DEFAULT: '#ffffff'
                 },
 
@@ -160,6 +161,12 @@ export const UIConfig = {
                         'HULL REPAIR I',
                         'HULL REPAIR II',
                         'HULL REPAIR III'
+                    ],
+                    // [NOUVEAU] Textes des portails de familiers/drones
+                    'DRONE_COUNT': [
+                        'DRONE DEPLOYED',
+                        'DRONE SQUADRON +1',
+                        'DRONE SQUADRON +1'
                     ]
                 },
 
@@ -167,6 +174,8 @@ export const UIConfig = {
                     if (type.startsWith('PRIMARY')) return this.COLORS.PRIMARY;
                     if (type.startsWith('SECONDARY')) return this.COLORS.SECONDARY;
                     if (type.startsWith('HULL')) return this.COLORS.HULL;
+                    // [MODIFIÉ] On redirige DRONE ou toute clé commençant par EXTRA vers notre couleur générique !
+                    if (type.startsWith('DRONE') || type.startsWith('EXTRA')) return this.COLORS.EXTRA;
                     return this.COLORS.DEFAULT;
                 },
 
@@ -227,7 +236,43 @@ export const UIConfig = {
         // --- ÉCRAN D'AMÉLIORATION (SUPER UPGRADE) ---
         UPGRADE: {
             TEXT: {
-                TITLE: 'EVOLUTION READY'
+                TITLE: 'EVOLUTION READY',
+
+                // [NOUVEAU] Textes des Archétypes extraits de UpgradesConfig
+                ARCHETYPES: {
+                    'CLASS_GUNNER': {
+                        TITLE: 'THE GUNNER',
+                        DESC: (hasteBonus, damagePenalty) => `Attack Speed: +${hasteBonus * 100}%\nDamage: ${damagePenalty * 100}%\n\n* Applies permanently to base stats and future upgrades.`
+                    },
+                    'CLASS_CANNON': {
+                        TITLE: 'HEAVY ARTILLERY',
+                        DESC: (damageBonus, hastePenalty) => `Damage: +${damageBonus * 100}%\nAttack Speed: ${hastePenalty * 100}%\n\n* Applies permanently to base stats and future upgrades.`
+                    },
+                    'CLASS_SPREAD': {
+                        TITLE: 'SPREAD PATTERN',
+                        DESC: (projectileBonus, damagePenalty) => `Fires ${projectileBonus} extra projectiles.\nDamage per projectile: ${damagePenalty * 100}%\n\n* Applies permanently to base stats and future upgrades.`
+                    }
+                },
+
+                // [NOUVEAU] Textes des Enhancements extraits de UpgradesConfig
+                ENHANCEMENTS: {
+                    'OVERCHARGE_PRIMARY': {
+                        TITLE: 'PRIMARY OVERCHARGE',
+                        DESC: (bonusValue) => `+${bonusValue} Primary Damage.`
+                    },
+                    'OVERCHARGE_HASTE': {
+                        TITLE: 'HASTE OVERCHARGE',
+                        DESC: (bonusValue) => `+${Math.round(bonusValue * 100)}% Attack Speed.`
+                    },
+                    'HEAVY_ARMOR': {
+                        TITLE: 'HEAVY ARMOR',
+                        DESC: (bonusValue) => `+${bonusValue} Max Hull Integrity.`
+                    },
+                    'ASSAULT_DRONE': {
+                        TITLE: 'ASSAULT DRONE',
+                        DESC: () => `Deploys an autonomous combat drone.`
+                    }
+                }
             },
             COLORS: {
                 OVERLAY_BG: 'rgba(0, 0, 0, 0.85)',
@@ -320,7 +365,6 @@ export const UIConfig = {
                 SFX: 'SFX : '
             },
             STYLES: {
-                // Utilisation de nos constantes locales !
                 TITLE: { weight: 'bold', fontSize: BASE_LG, color: '#ffffff' },
                 STAT_ICON: { weight: 'normal', fontSize: BASE_SM, color: '#ffffff' },
                 STAT_VALUE: { weight: 'bold', fontSize: BASE_SM - 5, color: '#2ecc71' },
@@ -328,15 +372,15 @@ export const UIConfig = {
             },
             COLORS: {
                 OVERLAY: 'rgba(0, 0, 0, 0.85)',
-                PANEL_BG: 'rgba(10, 15, 20, 0.95)', 
+                PANEL_BG: 'rgba(10, 15, 20, 0.95)',
                 PANEL_BORDER: '#3498db'
             },
             LAYOUT: {
                 PANEL_WIDTH_PCT: 0.85,
                 PANEL_HEIGHT: 180,
-                PANEL_OFFSET_Y: 500, 
+                PANEL_OFFSET_Y: 500,
                 PANEL_RADIUS: 15,
-                
+
                 TITLE_Y_PCT: 0.20,
                 BTN_RESUME_Y_PCT: 0.30,
                 BTN_MUSIC_Y_PCT: 0.50,
@@ -344,10 +388,10 @@ export const UIConfig = {
                 BTN_MENU_Y_PCT: 0.40,
 
                 GEAR_BTN_SIZE: 60,
-                GEAR_BTN_MARGIN: 20 
+                GEAR_BTN_MARGIN: 20
             }
         } // Fin de SETTINGS
-        
+
     }, // <-- FIN DU BLOC SCREENS 
 
     // ============================================================================

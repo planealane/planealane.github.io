@@ -1,6 +1,6 @@
 // js/entities/Player.js
 import { GameConfig } from '../GameConfig.js';
-import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Import visuals config
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js';
 import { ShipsAtlas } from '../utils/Atlas.js';
 import { SpriteEntity, drawFloatingText } from './Entity.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
@@ -8,49 +8,43 @@ import { PrimaryWeapon } from '../weapons/PrimaryWeapon.js';
 import { SecondaryWeapon } from '../weapons/SecondaryWeapon.js';
 import { drawAlgorithmicTrail } from '../utils/VFXUtils.js';
 import { WeaponConfig } from '../config/WeaponConfig.js';
+import { Drone } from './Drone.js'; // [NOUVEAU] On importe le familier !
 
 export class Player extends SpriteEntity {
     constructor(image, variantIndex = EntityVisualsConfig.PLAYER.BASE_VARIANT) {
         const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
         const frame = ShipsAtlas.getFrame(safeIndex, image.width, image.height);
 
-        // Spawn using GameConfig.CANVAS dimensions and visual configuration sizing/layering
         super(GameConfig.CANVAS.WIDTH / 2, GameConfig.CANVAS.HEIGHT - 300, EntityVisualsConfig.PLAYER.SIZE, EntityVisualsConfig.PLAYER.SIZE, image, frame, 0, EntityVisualsConfig.Z_INDEX.PLAYER);
         this.currentVariant = safeIndex;
 
-        // ==========================================
-        // PLAYER STATS & MODIFIERS
-        // Prepared for UpgradesConfig multipliers
-        // ==========================================
         this.stats = {
             hp: GameConfig.PLAYER_BASE_HP,
             maxHp: GameConfig.PLAYER_BASE_HP,
 
-            // Core multipliers from Archetypes
             damageMultiplier: 1.0,
             hasteMultiplier: 0.0,
 
-            // Flat accumulated bonuses from Gates
             flatPrimaryDamage: 0,
             flatHaste: 0,
             flatSecondaryHaste: 0,
 
-            // Special mechanics
+            // [NOUVEAU] Le compteur officiel de drones
             droneCount: 0
         };
 
-        // Weapon system initialization
+        // Liste des familiers actifs
+        this.drones = []; // [NOUVEAU]
+
         this.weapons = [
             new PrimaryWeapon(WeaponConfig.BASE.PRIMARY),
             new SecondaryWeapon(WeaponConfig.BASE.SECONDARY)
         ];
-        
-        // Physics for visual banking (tilting) when moving horizontally
+
         this.targetAngle = 0;
         this.maxTilt = 0.35;
         this.tiltResponsiveness = 0.15;
 
-        // Transformation state
         this.isTransforming = false;
         this.transformDuration = 0;
         this.transformTimer = 0;
@@ -59,13 +53,9 @@ export class Player extends SpriteEntity {
         this.targetVariant = 0;
     }
 
-    /**
-     * Triggers the transformation sequence and plays the sound ONCE.
-     */
     setVariant(variantIndex) {
         const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
 
-        // Prevent triggering if already in target form or currently transforming
         if (this.currentVariant === safeIndex && !this.isTransforming) return;
 
         this.previousVariant = this.currentVariant || 0;
@@ -76,14 +66,9 @@ export class Player extends SpriteEntity {
         this.transformTimer = this.transformDuration;
         this.blinkAccumulator = 0;
 
-        // Fire and forget: guarantees the sound plays exactly once per form change
         gameEvents.emit(EVENTS.PLAY_SFX, { id: 'form_change', volume: 1.0 });
     }
 
-    /**
-     * Updates the sprite frame based on the Atlas.
-     * Centralized to keep frame logic DRY.
-     */
     _updateFrame(variantIndex) {
         if (this.image) {
             const safeIndex = variantIndex % ShipsAtlas.PLAYER_VARIANTS;
@@ -92,23 +77,19 @@ export class Player extends SpriteEntity {
     }
 
     update(dt, pointerX, entityManager) {
-        // 1. Constrain to screen bounds
         const minX = GameConfig.MARGIN_X + (this.width / 2);
         const maxX = GameConfig.CANVAS.WIDTH - GameConfig.MARGIN_X - (this.width / 2);
 
-        // 2. Calculate movement for visual tilt
         const dx = pointerX - this.x;
         this.targetAngle = Math.max(-this.maxTilt, Math.min(this.maxTilt, dx * 0.02));
 
         if (pointerX <= minX || pointerX >= maxX) {
-            this.targetAngle = 0; // Flatten ship at edges
+            this.targetAngle = 0;
         }
 
-        // 3. Apply physics
         this.angle += (this.targetAngle - this.angle) * this.tiltResponsiveness;
         this.x = Math.max(minX, Math.min(maxX, pointerX));
 
-        // 4. Handle transformation animation (Visual only)
         if (this.isTransforming) {
             this.transformTimer -= dt;
             this.blinkAccumulator += dt;
@@ -117,19 +98,55 @@ export class Player extends SpriteEntity {
             const blinkRate = Math.max(50, 150 - (progress * 100));
 
             if (this.transformTimer <= 0) {
-                // Sequence complete, lock to target
                 this.isTransforming = false;
                 this.currentVariant = this.targetVariant;
                 this._updateFrame(this.currentVariant);
             } else if (this.blinkAccumulator >= blinkRate) {
-                // Swap forms for the blinking effect
                 this.blinkAccumulator = 0;
                 this.currentVariant = (this.currentVariant === this.targetVariant) ? this.previousVariant : this.targetVariant;
                 this._updateFrame(this.currentVariant);
             }
         }
 
-        // 5. Handle Combat (Shooting)
+        // ==========================================
+        // [NOUVEAU] SYSTÈME DE FUSION DES DRONES
+        // ==========================================
+        const DRONES_PER_MERGE = 5;
+        const totalDroneStat = this.stats.droneCount || 0;
+
+        // Calcul du nombre de drones "Super" (Niveau 2) et "Normaux" (Niveau 1)
+        const bigDronesCount = Math.floor(totalDroneStat / DRONES_PER_MERGE);
+        const smallDronesCount = totalDroneStat % DRONES_PER_MERGE;
+        const targetFleetSize = bigDronesCount + smallDronesCount;
+
+        // 1. Ajouter les drones manquants à la flotte
+        while (this.drones.length < targetFleetSize) {
+            const droneImage = entityManager.assets.getImage('drone');
+            const newDrone = new Drone(this, 0, WeaponConfig.BASE.DRONE, droneImage, entityManager); // Index sera mis à jour juste en dessous
+            this.drones.push(newDrone);
+            entityManager.addEntity(newDrone);
+        }
+
+        // 2. Retirer les drones en trop (L'instant magique de la fusion !)
+        while (this.drones.length > targetFleetSize) {
+            const removedDrone = this.drones.pop();
+            removedDrone.markForDeletion = true; // Le moteur va le détruire
+        }
+
+        // 3. Mettre à jour l'index et la puissance de chaque drone survivant
+        this.drones.forEach((drone, index) => {
+            drone.droneIndex = index + 1; // 1, 2, 3...
+
+            // Les premiers drones de la liste deviennent les gros drones !
+            if (index < bigDronesCount) {
+                drone.powerMultiplier = DRONES_PER_MERGE;
+            } else {
+                drone.powerMultiplier = 1;
+            }
+        });
+
+        // ==========================================
+
         this.weapons.forEach(weapon => weapon.update(dt, this, entityManager));
     }
 
@@ -145,24 +162,14 @@ export class Player extends SpriteEntity {
         );
 
         super.draw(ctx);
-        // Uses the configured visual offset for the HP text above the player
         const textY = this.y + (this.height / 2) + EntityVisualsConfig.PLAYER.HP_OFFSET_Y;
         drawFloatingText(ctx, `${Math.floor(this.stats.hp)}`, this.x, textY, '#2ecc71');
     }
 
-    /**
-     * Utility to retrieve a specific weapon instance
-     */
     getWeapon(weaponClass) {
         return this.weapons.find(w => w instanceof weaponClass);
     }
 
-    // Direct accessors to maintain compatibility with UpgradesConfig.js logic
-    get primaryWeapon() {
-        return this.getWeapon(PrimaryWeapon);
-    }
-
-    get secondaryWeapon() {
-        return this.getWeapon(SecondaryWeapon);
-    }
+    get primaryWeapon() { return this.getWeapon(PrimaryWeapon); }
+    get secondaryWeapon() { return this.getWeapon(SecondaryWeapon); }
 }

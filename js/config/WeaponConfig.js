@@ -19,7 +19,7 @@ export const WeaponConfig = {
         },
         DRONE: {
             damage: 20,
-            cooldown: 500, // 2 tirs par seconde
+            cooldown: 1000, // 2 tirs par seconde
             projectileSpeed: 1,
             count: 1
         },

@@ -4,7 +4,6 @@ import { UpgradesConfig } from '../config/UpgradesConfig.js';
 import { ShipsAtlas, PropsAtlas } from '../utils/Atlas.js';
 import { drawMangaLines } from '../utils/VFXUtils.js';
 import { gameEvents, EVENTS } from '../core/EventBus.js';
-// 🗑️ GameConfig est totalement retiré
 
 export class SuperUpgradeOverlay {
     constructor(gameManager, onCompleteCallback) {
@@ -75,7 +74,7 @@ export class SuperUpgradeOverlay {
 
     getTierColor(tierIndex) {
         const tiers = UIConfig.SCREENS.UPGRADE.COLORS.TIERS;
-        return tiers[tierIndex] || tiers[3]; // Retourne la couleur, ou le Fallback (blanc)
+        return tiers[tierIndex] || tiers[3]; 
     }
 
     spawnParticles(cardBounds, color) {
@@ -219,6 +218,7 @@ export class SuperUpgradeOverlay {
     }
 
     drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+        if (!text) return; // Sécurité si le texte n'est pas défini
         const words = text.replace(/\n/g, ' ').split(' ');
         let line = '';
         let currentY = y;
@@ -263,7 +263,40 @@ export class SuperUpgradeOverlay {
 
             const isHovered = this.hoveredIndex === index;
             const cardConfig = card.choice.config;
-            const tierColor = this.getTierColor(card.choice.tierIndex);
+            const tierIndex = card.choice.tierIndex;
+            const tierColor = this.getTierColor(tierIndex);
+
+            // =================================================================
+            // [MODIFIÉ] EXTRACTION DES TEXTES DEPUIS UICONFIG
+            // =================================================================
+            let uiTextConfig = config.TEXT.ARCHETYPES[cardConfig.id] || config.TEXT.ENHANCEMENTS[cardConfig.id];
+            
+            // Fallback de sécurité au cas où l'ID n'est pas trouvé dans UIConfig
+            let displayTitle = uiTextConfig ? uiTextConfig.TITLE : "UNKNOWN UPGRADE";
+            let displayDesc = "No description available.";
+
+            if (uiTextConfig && typeof uiTextConfig.DESC === 'function') {
+                // On passe les paramètres nécessaires selon l'ID
+                if (cardConfig.id.startsWith('CLASS_')) {
+                    // Les archétypes ont besoin de bonus spécifiques
+                    if (cardConfig.id === 'CLASS_GUNNER') displayDesc = uiTextConfig.DESC(cardConfig.hasteBonus, cardConfig.damagePenalty);
+                    if (cardConfig.id === 'CLASS_CANNON') displayDesc = uiTextConfig.DESC(cardConfig.damageBonus, cardConfig.hastePenalty);
+                    if (cardConfig.id === 'CLASS_SPREAD') displayDesc = uiTextConfig.DESC(cardConfig.projectileBonus, cardConfig.damagePenalty);
+                } else {
+                    // Les enhancements ont besoin de la valeur du tableau au bon tierIndex
+                    let bonusValue = 0;
+                    if (cardConfig.damageBonus) bonusValue = cardConfig.damageBonus[tierIndex];
+                    else if (cardConfig.hasteBonus) bonusValue = cardConfig.hasteBonus[tierIndex];
+                    else if (cardConfig.baseHpBonus) {
+                        // Pour Heavy Armor, il faut calculer le HpScale
+                        bonusValue = UpgradesConfig.COMPUTE.hpScale(cardConfig.baseHpBonus[tierIndex], this.currentWave);
+                    }
+                    else if (cardConfig.droneCountBonus) bonusValue = cardConfig.droneCountBonus;
+                    
+                    displayDesc = uiTextConfig.DESC(bonusValue);
+                }
+            }
+            // =================================================================
 
             ctx.save();
 
@@ -314,14 +347,14 @@ export class SuperUpgradeOverlay {
             let titleFontSize = typo.SIZE_SM;
             ctx.font = `bold ${titleFontSize}px ${typo.FAMILY}`;
 
-            let titleWidth = ctx.measureText(cardConfig.title).width;
+            let titleWidth = ctx.measureText(displayTitle).width;
             if (titleWidth > maxTextWidth) {
                 titleFontSize = titleFontSize * (maxTextWidth / titleWidth);
                 ctx.font = `bold ${titleFontSize}px ${typo.FAMILY}`;
             }
 
             ctx.textAlign = 'center';
-            ctx.fillText(cardConfig.title, textCenterX, card.y + card.height * config.LAYOUT.CARD_TITLE_Y_PCT);
+            ctx.fillText(displayTitle, textCenterX, card.y + card.height * config.LAYOUT.CARD_TITLE_Y_PCT);
 
             ctx.fillStyle = config.COLORS.TEXT_DESC;
             const descFontSize = typo.SIZE_SM * 0.75;
@@ -329,9 +362,9 @@ export class SuperUpgradeOverlay {
 
             const startDescY = card.y + card.height * config.LAYOUT.CARD_DESC_Y_PCT;
             const lineHeight = descFontSize * 1.4;
-            const descriptionText = cardConfig.getDescription(card.choice.tierIndex, this.currentWave);
 
-            this.drawWrappedText(ctx, descriptionText, textCenterX, startDescY, maxTextWidth, lineHeight);
+            // On utilise notre texte de description généré plus haut
+            this.drawWrappedText(ctx, displayDesc, textCenterX, startDescY, maxTextWidth, lineHeight);
         });
 
         // Particules

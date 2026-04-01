@@ -9,6 +9,7 @@ export const EntityVisualsConfig = {
         ENEMY: 10,
         BOSS: 15,
         PLAYER: 20,
+        DRONE: 22, // [NOUVEAU] Juste au-dessus du joueur
         COLLECTIBLE: 25,
         PROJECTILE: 30,
         VFX: 40,
@@ -23,6 +24,16 @@ export const EntityVisualsConfig = {
         BASE_VARIANT: 10,
         TRAIL_LENGTH: 15,
         HP_OFFSET_Y: 25
+    },
+
+    // [NOUVEAU] Tous les réglages visuels de l'escadrille
+    DRONE: {
+        SIZE: 80,                  // Taille du sprite
+        FORMATION_OFFSET_X: 60,    // Écartement horizontal entre chaque drone
+        FORMATION_OFFSET_Y: 30,    // Décalage vertical par rapport au joueur
+        LERP_FACTOR: 0.1,          // Vitesse d'élasticité (0.1 = 10% par frame)
+        BOB_AMPLITUDE: 5,          // Hauteur du flottement haut/bas
+        BOB_SPEED: 0.005           // Vitesse du flottement
     },
     
     ENEMY: {
@@ -48,13 +59,12 @@ export const EntityVisualsConfig = {
     // ==========================================
     VFX: {
         SHAKE: {
-            // Default intensities and durations for different events
             ENEMY_KILL: { intensity: 3, duration: 150 },
             PLAYER_HIT: { intensity: 8, duration: 250 },
             PLAYER_DEATH: { intensity: 15, duration: 600 }
         },
         HIT_STOP: {
-            ENEMY_KILL: 30 // Milliseconds to freeze the frame on kill
+            ENEMY_KILL: 30 
         },
         FLOATING_TEXT: {
             DURATION: 800,
@@ -64,7 +74,7 @@ export const EntityVisualsConfig = {
             LINE_COUNT: 30,
             WIDTH_THIN: 4,
             WIDTH_THICK: 8,
-            THICK_CHANCE: 0.8 // 20% chance to be thick (Math.random() > 0.8)
+            THICK_CHANCE: 0.8 
         }
     }
 };
