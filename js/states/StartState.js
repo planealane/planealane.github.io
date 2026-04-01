@@ -2,9 +2,10 @@
 import { State } from './State.js';
 import { Button } from '../ui/Button.js';
 import { UIConfig } from '../UIConfig.js';
-import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; // [NEW] Replaced GameConfig
+import { EntityVisualsConfig } from '../config/EntityVisualsConfig.js'; 
 import { ShipsAtlas } from '../utils/Atlas.js';
 import { drawAlgorithmicTrail } from '../utils/VFXUtils.js';
+import { SettingsOverlay } from '../ui/SettingsOverlay.js'; // [NEW] Import
 
 export class StartState extends State {
     
@@ -21,6 +22,10 @@ export class StartState extends State {
         this.isTransitioning = false;
         this.transitionStartTime = 0;
         
+        // [NEW] On instancie notre overlay de paramètres
+        this.settingsOverlay = new SettingsOverlay(this.gameManager);
+        this.isSettingsOpen = false;
+        
         this.buttons = [];
         this.initUI();
         this.gameManager.audioManager.playMusic('title-theme', 0.5, 1000);
@@ -28,7 +33,7 @@ export class StartState extends State {
 
     initUI() {
         const layout = UIConfig.SCREENS.START;
-        const typo = UIConfig.TYPOGRAPHY; // Typo shortcut
+        const typo = UIConfig.TYPOGRAPHY; 
         const width = this.gameManager.canvas.width;
         const height = this.gameManager.canvas.height;
         const centerX = width / 2;
@@ -38,7 +43,7 @@ export class StartState extends State {
         const playBtnY = height * layout.PLAY_BTN_Y_PERCENTAGE;
 
         this.startButton = new Button(
-            layout.TEXT.PLAY_BTN, // 🔄 Centralized text
+            layout.TEXT.PLAY_BTN, 
             centerX - playWidth / 2, 
             playBtnY, 
             'start', 
@@ -46,18 +51,48 @@ export class StartState extends State {
             { 
                 width: playWidth, 
                 height: playHeight,
-                fontSize: typo.SIZE_MD * 1.5, // 🔄 Using UIConfig instead of GameConfig
+                fontSize: typo.SIZE_MD * 1.5, 
                 sfxId: 'game_start'
             }
         );
-
         this.startButton.anchorY = playBtnY;
         this.buttons.push(this.startButton);
+
+        // [NEW] Création du bouton Settings juste en dessous
+        // On le fait un peu plus petit (SCALE de 1.5 au lieu de 2 par exemple)
+        const settingsWidth = Math.min(UIConfig.BUTTONS.DEFAULTS.width * 1.5, width * 0.8);
+        const settingsHeight = UIConfig.BUTTONS.DEFAULTS.height * 1.5;
+        // On le place avec une marge (ex: 40px) sous le bouton Play
+        const settingsBtnY = playBtnY + playHeight + 40; 
+
+        this.settingsButton = new Button(
+            'SETTINGS', // Texte en dur pour l'instant, tu peux le mettre dans UIConfig
+            centerX - settingsWidth / 2, 
+            settingsBtnY, 
+            'primary', 
+            () => this.openSettings(),
+            { 
+                width: settingsWidth, 
+                height: settingsHeight,
+                fontSize: typo.SIZE_MD * 1.2
+            }
+        );
+        this.settingsButton.anchorY = settingsBtnY;
+        this.buttons.push(this.settingsButton);
     }
 
     startTransition() {
+        if (this.isSettingsOpen) return; // Sécurité
         this.isTransitioning = true;
         this.transitionStartTime = performance.now();
+    }
+
+    // [NEW] Ouvre le menu des paramètres
+    openSettings() {
+        this.isSettingsOpen = true;
+        // On passe 'null' pour le joueur, car le vaisseau n'existe pas encore !
+        // Le SettingsOverlay ignorera simplement la boîte de statistiques.
+        this.settingsOverlay.show(null);
     }
 
     // ============================================================================
@@ -65,9 +100,20 @@ export class StartState extends State {
     // ============================================================================
 
     update(dt, pointer) {
+        // [NEW] Si les paramètres sont ouverts, on redirige l'update vers l'overlay
+        if (this.isSettingsOpen) {
+            this.settingsOverlay.update(dt, pointer);
+            
+            // Si l'overlay n'est plus actif (le joueur a cliqué sur 'RESUME' ou 'ABORT MISSION')
+            if (!this.settingsOverlay.isActive) {
+                this.isSettingsOpen = false;
+            }
+            return; // On bloque le reste de la logique du menu démarrer
+        }
+
         if (this.isTransitioning) {
             const elapsed = performance.now() - this.transitionStartTime;
-            if (elapsed >= UIConfig.SCREENS.START.TRANSITION_MS) { // 🔄 Centralized in START
+            if (elapsed >= UIConfig.SCREENS.START.TRANSITION_MS) { 
                 this.gameManager.changeState('PLAY');
             }
             return; 
@@ -76,8 +122,11 @@ export class StartState extends State {
         const time = performance.now();
         const anims = UIConfig.ANIMATIONS;
 
-        this.buttons.forEach(btn => {
-            btn.baseY = btn.anchorY + Math.sin(time * anims.BTN_BREATH_SPEED) * anims.BTN_BREATH_AMPLITUDE;
+        this.buttons.forEach((btn, index) => {
+            // [MODIFIED] On décale légèrement l'animation de souffle du 2ème bouton
+            // en ajoutant un offset basé sur l'index du bouton
+            const delayOffset = index * 1000; 
+            btn.baseY = btn.anchorY + Math.sin((time + delayOffset) * anims.BTN_BREATH_SPEED) * anims.BTN_BREATH_AMPLITUDE;
             btn.update(pointer.x, pointer.y, pointer.isDown);
         });
 
@@ -114,7 +163,7 @@ export class StartState extends State {
             // 2. Plane gathers momentum (squats) then takes off
             if (progress < 0.40) {
                 const squatProgress = progress / 0.40;
-                planeOffsetY = Math.sin(squatProgress * Math.PI) * layout.LAYOUT.SQUAT_AMPLITUDE; // 🔄 Variable
+                planeOffsetY = Math.sin(squatProgress * Math.PI) * layout.LAYOUT.SQUAT_AMPLITUDE; 
             } else {
                 const takeoffProgress = (progress - 0.40) / 0.60;
                 const takeoffEase = Math.pow(takeoffProgress, 3); 
@@ -133,14 +182,14 @@ export class StartState extends State {
         if (this.bgImage) {
             ctx.drawImage(this.bgImage, 0, 0, width, height);
         } else {
-            ctx.fillStyle = layout.COLORS.FALLBACK_BG; // 🔄 Variable
+            ctx.fillStyle = layout.COLORS.FALLBACK_BG; 
             ctx.fillRect(0, 0, width, height);
         }
 
         // 2. Title
         let staticTitleBottomY = height * layout.TITLE_Y_PERCENTAGE; 
         if (this.titleImage) {
-            const maxWidth = width * layout.LAYOUT.TITLE_MAX_WIDTH_PCT; // 🔄 Variable
+            const maxWidth = width * layout.LAYOUT.TITLE_MAX_WIDTH_PCT; 
             const scale = Math.min(maxWidth / this.titleImage.width, 1);
             const scaledWidth = this.titleImage.width * scale;
             const scaledHeight = this.titleImage.height * scale;
@@ -155,11 +204,9 @@ export class StartState extends State {
 
         // 3. Plane and particles
         if (this.playerImage) {
-            // [MODIFIED] Fetching the base variant from EntityVisualsConfig instead of GameConfig
             const safeIndex = EntityVisualsConfig.PLAYER.BASE_VARIANT % ShipsAtlas.PLAYER_VARIANTS;
             const frame = ShipsAtlas.getFrame(safeIndex, this.playerImage.width, this.playerImage.height);
             
-            // 🔄 Size is now managed by UIConfig!
             const displaySize = layout.TITLE_PLAYER_SIZE; 
             
             const spriteX = width / 2 - displaySize / 2;
@@ -176,9 +223,10 @@ export class StartState extends State {
         }
 
         // 4. Buttons
-        this.buttons.forEach(btn => {
+        this.buttons.forEach((btn, index) => {
             const originalY = btn.baseY;
-            btn.baseY += buttonsOffsetY;
+            // On peut aussi rajouter un léger décalage dans la chute des boutons lors de la transition
+            btn.baseY += buttonsOffsetY * (1 + (index * 0.2)); 
             btn.draw(ctx);
             btn.baseY = originalY; 
         });
@@ -187,6 +235,11 @@ export class StartState extends State {
         if (fadeAlpha > 0) {
             ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
             ctx.fillRect(0, 0, width, height);
+        }
+        
+        // [NEW] 6. Dessin de l'overlay des paramètres par-dessus la scène
+        if (this.isSettingsOpen) {
+            this.settingsOverlay.draw(ctx);
         }
     }
 }

@@ -1,15 +1,26 @@
 // js/UIConfig.js
 
+// ==========================================
+// 1. CONSTANTES LOCALES
+// ==========================================
+const FONT_FAMILY = "'GameFont', sans-serif";
+const BASE_SM = 40; // Petit texte UI (Stats, icônes)
+const BASE_MD = 60; // Texte standard
+const BASE_LG = 80; // Gros titres (Pause, Game Over)
+
+// ==========================================
+// 2. CONFIGURATION EXPORTÉE
+// ==========================================
 export const UIConfig = {
     // ==========================================
     // 🌍 GLOBAUX & FONDATIONS VISUELLES
     // ==========================================
 
     TYPOGRAPHY: {
-        FAMILY: "'GameFont', sans-serif",
-        SIZE_SM: 40, // Petit texte UI
-        SIZE_MD: 60, // Texte de combat standard
-        SIZE_LG: 80  // Annonces à l'écran
+        FAMILY: FONT_FAMILY,
+        SIZE_SM: BASE_SM, 
+        SIZE_MD: BASE_MD, 
+        SIZE_LG: BASE_LG  
     },
 
     // ==========================================
@@ -49,22 +60,20 @@ export const UIConfig = {
     SCREENS: {
         // --- ÉCRAN DE CHARGEMENT ---
         LOAD: {
-            DURATION_MS: 1500,     // Durée du faux chargement
-            TRANSITION_MS: 500,    // Durée du fondu vers le menu
+            DURATION_MS: 1500,     
+            TRANSITION_MS: 500,    
 
             TEXT: {
                 LOADING: 'LOADING SYSTEM...',
                 READY: 'LOADING FINISHED',
                 PROMPT: 'TAP TO START'
             },
-
             COLORS: {
                 TEXT: '#ffffff',
                 BAR_BG: '#333333',
                 BAR_FILL: '#2ecc71',
                 BAR_BORDER: '#ffffff'
             },
-
             LAYOUT: {
                 BAR_WIDTH: 400,
                 BAR_HEIGHT: 30,
@@ -116,7 +125,6 @@ export const UIConfig = {
                     DEFAULT: '#ffffff'
                 },
 
-                // Keys here perfectly match UpgradesConfig.PORTALS
                 LABELS: {
                     'PRIMARY_DAMAGE': [
                         'GUN DAMAGE I',
@@ -291,18 +299,56 @@ export const UIConfig = {
                 BTN_HEIGHT_MULT: 1.5,
                 BOX_WIDTH: 300,
                 BOX_HEIGHT: 800,
-                BOX_SPACING: 20,
+                BOX_SPACING: 40,
                 BOX_BORDER_WIDTH: 4,
                 TITLE_Y_PCT: 0.10,
                 TITLE_SCREEN_2_Y_PCT: 0.15,
                 DESC_OFFSET_Y_1: 60,
                 DESC_OFFSET_Y_2: 110,
                 GATE_DESC_OFFSET_Y: 120,
-                // [NEW] Vertical spacing between the stacked gates
                 GATE_SPACING_Y: 350
             }
         },
-    },
+
+        // --- ÉCRAN DE PARAMÈTRES / PAUSE ---
+        SETTINGS: {
+            TEXT: {
+                TITLE: 'SYSTEM PAUSED',
+                RESUME: 'RESUME',
+                MENU: 'ABORT MISSION',
+                MUSIC: 'MUSIC : ',
+                SFX: 'SFX : '
+            },
+            STYLES: {
+                // Utilisation de nos constantes locales !
+                TITLE: { weight: 'bold', fontSize: BASE_LG, color: '#ffffff' },
+                STAT_ICON: { weight: 'normal', fontSize: BASE_SM, color: '#ffffff' },
+                STAT_VALUE: { weight: 'bold', fontSize: BASE_SM - 5, color: '#2ecc71' },
+                STAT_LABEL: { weight: 'normal', fontSize: BASE_SM - 15, color: '#aaaaaa' }
+            },
+            COLORS: {
+                OVERLAY: 'rgba(0, 0, 0, 0.85)',
+                PANEL_BG: 'rgba(10, 15, 20, 0.95)', 
+                PANEL_BORDER: '#3498db'
+            },
+            LAYOUT: {
+                PANEL_WIDTH_PCT: 0.85,
+                PANEL_HEIGHT: 180,
+                PANEL_OFFSET_Y: 500, 
+                PANEL_RADIUS: 15,
+                
+                TITLE_Y_PCT: 0.20,
+                BTN_RESUME_Y_PCT: 0.30,
+                BTN_MUSIC_Y_PCT: 0.50,
+                BTN_SFX_Y_PCT: 0.60,
+                BTN_MENU_Y_PCT: 0.40,
+
+                GEAR_BTN_SIZE: 60,
+                GEAR_BTN_MARGIN: 20 
+            }
+        } // Fin de SETTINGS
+        
+    }, // <-- FIN DU BLOC SCREENS 
 
     // ============================================================================
     // MOTEUR DE RENDU DE TEXTE UNIVERSEL
@@ -318,7 +364,6 @@ export const UIConfig = {
     drawText: function (ctx, text, x, y, style = {}) {
         if (text === undefined || text === null) return;
 
-        // Paramètres par défaut sécurisés (fallback sur ta TYPOGRAPHY)
         const fontSize = style.fontSize || this.TYPOGRAPHY.SIZE_MD;
         const fontFamily = style.fontFamily || this.TYPOGRAPHY.FAMILY;
         const weight = style.weight || 'normal';

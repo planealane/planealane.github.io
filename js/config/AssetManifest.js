@@ -5,6 +5,7 @@
  */
 export const ImageManifest = [
     { key: 'ships', path: 'assets/ships.png', isAtlas: true },
+    { key: 'drone', path: 'assets/drone.png', isAtlas: false },
     { key: 'props', path: 'assets/props.png', isAtlas: true },
     { key: 'progress_spritesheet', path: 'assets/progress_spritesheet.png', isAtlas: false },
     { key: 'plain-sky', path: 'assets/plain-sky.jpg', isAtlas: false },
